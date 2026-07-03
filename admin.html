@@ -150,7 +150,35 @@ window.DEFAULT_CONFIG = { AREAS: [
 ]}
 } };
 
-let session = null; // {access_token}
+let session = null; // {access_token, refresh_token}
+
+function saveSession(s){
+  session = s;
+  try{ localStorage.setItem('reconecta_admin_session', JSON.stringify(s)); }catch(e){}
+}
+function clearSession(){
+  session = null;
+  try{ localStorage.removeItem('reconecta_admin_session'); }catch(e){}
+}
+async function restoreSession(){
+  let stored = null;
+  try{ stored = JSON.parse(localStorage.getItem('reconecta_admin_session') || 'null'); }catch(e){}
+  if(!stored || !stored.refresh_token) return;
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body: JSON.stringify({refresh_token: stored.refresh_token})
+    });
+    const j = await res.json();
+    if(res.ok && j.access_token){
+      saveSession({access_token:j.access_token, refresh_token:j.refresh_token});
+      await Promise.all([loadRespostas(), loadConfig()]);
+    } else {
+      clearSession();
+    }
+  }catch(e){ clearSession(); }
+}
 let authMode = 'login';
 let tab = 'respostas';
 let respostas = [];
@@ -192,12 +220,16 @@ async function updateRespostaField(id, field, value){
   const r = respostas.find(x=>x.id===id);
   if(r) r[field] = value;
   try{
-    await fetch(`${SUPABASE_URL}/rest/v1/reconecta_respostas?id=eq.${id}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/reconecta_respostas?id=eq.${id}`, {
       method:'PATCH',
       headers:{...authHeaders(), 'Prefer':'return=minimal'},
       body: JSON.stringify({[field]: value})
     });
-  }catch(e){ console.error('Erro ao atualizar resposta', e); }
+    if(!res.ok){
+      const j = await res.json().catch(()=>({}));
+      alert('Não foi possível salvar: ' + (j.message || res.status) + '\nConfira se o SQL de update/grant foi aplicado no Supabase.');
+    }
+  }catch(e){ alert('Erro de conexão ao salvar. Tente novamente.'); }
 }
 let loading = false;
 let loginError = '';
@@ -275,7 +307,7 @@ async function doSignup(){
     const j = await res.json();
     if(!res.ok){ loginError = j.msg || j.error_description || 'Não foi possível criar a conta.'; render(); return; }
     if(j.access_token){
-      session = {access_token: j.access_token};
+      saveSession({access_token: j.access_token, refresh_token: j.refresh_token});
       await Promise.all([loadRespostas(), loadConfig()]);
       render();
     } else {
@@ -299,7 +331,7 @@ async function doLogin(){
     });
     const j = await res.json();
     if(!res.ok || !j.access_token){ loginError = 'E-mail ou senha inválidos.'; render(); return; }
-    session = {access_token: j.access_token};
+    saveSession({access_token: j.access_token, refresh_token: j.refresh_token});
     await Promise.all([loadRespostas(), loadConfig()]);
     render();
   }catch(e){ loginError = 'Erro ao conectar. Tente novamente.'; render(); }
@@ -452,7 +484,7 @@ function fmtDate(iso){ if(!iso) return ''; const d = new Date(iso); return d.toL
 
 function attachHandlers(){
   const logout = document.getElementById('btnLogout');
-  if(logout) logout.onclick = ()=>{ session=null; render(); };
+  if(logout) logout.onclick = ()=>{ clearSession(); render(); };
   document.querySelectorAll('.tab').forEach(el=> el.onclick = ()=>{ tab = el.dataset.tab; expandedRow=null; render(); });
   document.querySelectorAll('.expand-btn').forEach(el=> el.onclick = ()=>{ const i=parseInt(el.dataset.row); expandedRow = expandedRow===i?null:i; render(); });
   document.querySelectorAll('.proj-select').forEach(el=>{
@@ -507,6 +539,7 @@ function attachHandlers(){
 }
 
 render();
+restoreSession().then(render);
 </script>
 </body>
 </html>
