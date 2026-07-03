@@ -54,6 +54,13 @@
   .hero h1{font-size:22px; font-weight:700; margin:0 0 8px; line-height:1.3;}
   .hero p{font-size:14px; color:#C7D0DE; margin:0; line-height:1.55; max-width:520px;}
 
+  .content-card{
+    background:var(--card);
+    border-radius:0 0 20px 20px;
+    box-shadow:var(--shadow);
+    padding-bottom:24px;
+  }
+
   /* Progress */
   .progress-wrap{padding:18px 24px 0;}
   .progress-track{height:6px; background:var(--line); border-radius:6px; overflow:hidden;}
@@ -78,7 +85,7 @@
   /* Area cards */
   .area-grid{display:grid; gap:12px;}
   .area-card{
-    background:var(--card); border:1.5px solid var(--line); border-radius:var(--radius);
+    background:var(--bg); border:1.5px solid var(--line); border-radius:var(--radius);
     padding:16px 18px; cursor:pointer; transition:.15s; display:flex; align-items:center; gap:14px;
   }
   .area-card:hover{border-color:#B9E8C4;}
@@ -105,7 +112,7 @@
   .module-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   @media(max-width:520px){.module-grid{grid-template-columns:1fr;}}
   .module-card{
-    background:var(--card); border:1.5px solid var(--line); border-radius:12px;
+    background:var(--bg); border:1.5px solid var(--line); border-radius:12px;
     padding:13px 14px; cursor:pointer; transition:.15s; position:relative;
   }
   .module-card:hover{border-color:#B9E8C4;}
@@ -146,8 +153,8 @@
 
   /* Module detail card wrapper */
   .module-detail-card{
-    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-    padding:20px; margin-bottom:18px; box-shadow:var(--shadow);
+    background:var(--bg); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px; margin-bottom:18px;
   }
   .md-header{display:flex; align-items:center; gap:10px; margin-bottom:4px;}
   .md-header .m-icon{font-size:20px;}
@@ -171,7 +178,7 @@
 
   /* Review */
   .review-block{
-    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:12px;
+    background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:12px;
   }
   .review-block h4{font-size:14px; font-weight:600; margin:0 0 8px; display:flex; align-items:center; gap:8px;}
   .review-block .rb-meta{font-size:12.5px; color:var(--text-muted); margin:2px 0;}
@@ -313,13 +320,14 @@ let MODULES = {
    ESTADO
    ====================================================================== */
 let state = {
-  step: 'welcome',
+  step: 'intro',
   nome:'', empresa:'',
   selectedAreas: new Set(),
   selectedModules: new Set(),
   moduleIdx: 0,
   data: {}, // {moduleId: {topics:Set, other:'', duvidas:'', dates:'', emails:''}}
-  openDetails: new Set()
+  openDetails: new Set(),
+  submitting: false
 };
 
 function ensureModuleData(id){
@@ -335,9 +343,11 @@ const app = document.getElementById('app');
 function render(){
   let html = '';
   html += renderHero();
+  html += '<div class="content-card">';
   html += renderProgress();
   html += '<div id="stepBody">' + renderStep() + '</div>';
   html += renderNav();
+  html += '</div>';
   app.innerHTML = html;
   attachHandlers();
   window.scrollTo({top:0, behavior:'smooth'});
@@ -346,20 +356,20 @@ function render(){
 function renderHero(){
   return `
   <div class="hero">
-    <span class="hero-badge">Universidade Sankhya · Reconecta</span>
-    <h1>Plano de Capacitação Personalizado</h1>
-    <p>Monte seu roteiro de capacitação em poucos passos. Você escolhe só o que faz sentido pro seu time — o resto a gente nem mostra.</p>
+    <span class="hero-badge">Universidade Sankhya · Plano de Capacitação Personalizado</span>
+    <h1>Você foi selecionado(a) para uma ação gratuita da Universidade Sankhya</h1>
+    <p>O objetivo é ajudar a otimizar o uso do ERP e melhorar seus processos. Monte seu roteiro em poucos passos — você escolhe só o que faz sentido pro seu time.</p>
   </div>`;
 }
 
 function totalProgressSteps(){
-  // welcome, basic, areas, modules, [one per selected module], review = 5 + N
-  return 5 + Math.max(state.selectedModules.size,0);
+  // intro, modules, [one per selected module], review = 3 + N
+  return 3 + Math.max(state.selectedModules.size,0);
 }
 function currentProgressIndex(){
-  const order = ['welcome','basic','areas','modules'];
+  const order = ['intro','modules'];
   if(order.includes(state.step)) return order.indexOf(state.step);
-  if(state.step === 'moduleDetail') return 4 + state.moduleIdx;
+  if(state.step === 'moduleDetail') return 2 + state.moduleIdx;
   if(state.step === 'review' || state.step === 'done') return totalProgressSteps()-1;
   return 0;
 }
@@ -368,7 +378,7 @@ function renderProgress(){
   const total = totalProgressSteps();
   const idx = currentProgressIndex();
   const pct = Math.min(100, Math.round((idx/(total-1))*100));
-  const labelMap = {welcome:'Início', basic:'Seus dados', areas:'Áreas', modules:'Módulos', moduleDetail:'Detalhes do módulo', review:'Revisão'};
+  const labelMap = {intro:'Início', modules:'Módulos', moduleDetail:'Detalhes do módulo', review:'Revisão'};
   return `
   <div class="progress-wrap">
     <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -378,9 +388,7 @@ function renderProgress(){
 
 function renderStep(){
   switch(state.step){
-    case 'welcome': return stepWelcome();
-    case 'basic': return stepBasic();
-    case 'areas': return stepAreas();
+    case 'intro': return stepIntro();
     case 'modules': return stepModules();
     case 'moduleDetail': return stepModuleDetail();
     case 'review': return stepReview();
@@ -389,33 +397,7 @@ function renderStep(){
   }
 }
 
-function stepWelcome(){
-  return `
-  <div class="step">
-    <h2>Você foi selecionado(a) para uma ação gratuita da Universidade Sankhya</h2>
-    <p class="sub">O objetivo é ajudar a otimizar o uso do ERP e melhorar seus processos. Antes de escolher uma data, vale conferir se já está atualizado(a) nos nossos canais oficiais:</p>
-    <div class="review-block">
-      <p class="rb-meta">🔗 Portal EAD Sankhya — ead.sankhya.com.br</p>
-      <p class="rb-meta">💬 Comunidade Sankhya — community.sankhya.com.br</p>
-      <p class="rb-meta">📅 Agenda de Eventos Sankhya</p>
-    </div>
-    <p class="sub">Depois de revisar os conteúdos, use este formulário para nos contar exatamente quais capacitações fazem sentido pro seu time — assim aproveitamos melhor o tempo da conexão.</p>
-  </div>`;
-}
-
-function stepBasic(){
-  return `
-  <div class="step">
-    <h2>Vamos começar com o básico</h2>
-    <p class="sub">Só pra saber com quem estamos falando.</p>
-    <label class="field-label">Nome</label>
-    <input type="text" id="inpNome" value="${escapeAttr(state.nome)}" placeholder="Seu nome completo">
-    <label class="field-label">Empresa</label>
-    <input type="text" id="inpEmpresa" value="${escapeAttr(state.empresa)}" placeholder="Nome da empresa">
-  </div>`;
-}
-
-function stepAreas(){
+function stepIntro(){
   const cards = AREAS.map(a=>{
     const sel = state.selectedAreas.has(a.id);
     return `
@@ -430,8 +412,13 @@ function stepAreas(){
   }).join('');
   return `
   <div class="step">
-    <h2>Quais áreas te interessam?</h2>
-    <p class="sub">Escolha uma ou mais. Só vamos mostrar os módulos das áreas selecionadas.</p>
+    <h2>Vamos começar</h2>
+    <p class="sub">Conta pra gente quem é você e quais áreas te interessam.</p>
+    <label class="field-label">Nome</label>
+    <input type="text" id="inpNome" value="${escapeAttr(state.nome)}" placeholder="Seu nome completo">
+    <label class="field-label">Empresa</label>
+    <input type="text" id="inpEmpresa" value="${escapeAttr(state.empresa)}" placeholder="Nome da empresa">
+    <label class="field-label" style="margin-top:14px;">Quais áreas te interessam?</label>
     <div class="area-grid">${cards}</div>
   </div>`;
 }
@@ -492,22 +479,11 @@ function stepModuleDetail(){
       <label class="field-label">Quais tópicos te interessam?</label>
       <div class="chip-wrap">${chips}</div>
 
-      <label class="field-label" style="margin-top:14px;">Outro tópico (opcional)</label>
-      <input type="text" id="inpOther" value="${escapeAttr(d.other)}" placeholder="Algo que não está na lista acima">
-
-      <label class="field-label">Dúvidas específicas sobre este módulo</label>
+      <label class="field-label" style="margin-top:14px;">Dúvidas específicas sobre este módulo</label>
       <textarea id="inpDuvidas" placeholder="Conte pra gente o que precisa ser esclarecido">${escapeHtml(d.duvidas)}</textarea>
 
-      <div class="row-2">
-        <div>
-          <label class="field-label">📅 Datas sugeridas para agenda</label>
-          <input type="text" id="inpDatas" value="${escapeAttr(d.dates)}" placeholder="Ex: terças à tarde">
-        </div>
-        <div>
-          <label class="field-label">✉️ E-mail dos participantes</label>
-          <input type="text" id="inpEmails" value="${escapeAttr(d.emails)}" placeholder="separados por vírgula">
-        </div>
-      </div>
+      <label class="field-label">✉️ E-mail dos participantes</label>
+      <input type="text" id="inpEmails" value="${escapeAttr(d.emails)}" placeholder="separados por vírgula">
     </div>
   </div>`;
 }
@@ -554,15 +530,12 @@ function stepDone(){
 
 function renderNav(){
   if(state.step === 'done') return '';
-  const canGoBack = state.step !== 'welcome';
+  const canGoBack = state.step !== 'intro';
   let nextLabel = 'Continuar';
   let nextDisabled = false;
 
-  if(state.step === 'basic'){
-    nextDisabled = !state.nome.trim() || !state.empresa.trim();
-  }
-  if(state.step === 'areas'){
-    nextDisabled = state.selectedAreas.size === 0;
+  if(state.step === 'intro'){
+    nextDisabled = !state.nome.trim() || !state.empresa.trim() || state.selectedAreas.size === 0;
   }
   if(state.step === 'modules'){
     nextDisabled = state.selectedModules.size === 0;
@@ -573,12 +546,13 @@ function renderNav(){
     nextLabel = (state.moduleIdx === ids.length-1) ? 'Revisar plano' : 'Próximo módulo';
   }
   if(state.step === 'review'){
-    nextLabel = 'Enviar plano';
+    nextLabel = state.submitting ? 'Enviando...' : 'Enviar plano';
+    nextDisabled = state.submitting;
   }
 
   return `
   <div class="nav-bar">
-    ${canGoBack ? `<button class="btn btn-ghost" id="btnBack">← Voltar</button>` : `<span></span>`}
+    ${canGoBack ? `<button class="btn btn-ghost" id="btnBack" ${state.submitting?'disabled':''}>← Voltar</button>` : `<span></span>`}
     <button class="btn btn-primary" id="btnNext" ${nextDisabled?'disabled':''}>${nextLabel}</button>
   </div>`;
 }
@@ -632,14 +606,14 @@ function attachHandlers(){
     render();
   };
 
-  ['inpOther','inpDuvidas','inpDatas','inpEmails'].forEach(fieldId=>{
+  ['inpDuvidas','inpEmails'].forEach(fieldId=>{
     const el = document.getElementById(fieldId);
     if(!el) return;
     el.oninput = e=>{
       const ids = Array.from(state.selectedModules);
       const mid = ids[state.moduleIdx];
       const d = ensureModuleData(mid);
-      const key = {inpOther:'other', inpDuvidas:'duvidas', inpDatas:'dates', inpEmails:'emails'}[fieldId];
+      const key = {inpDuvidas:'duvidas', inpEmails:'emails'}[fieldId];
       d[key] = e.target.value;
     };
   });
@@ -649,16 +623,13 @@ function updateNextButtonState(){
   const btn = document.getElementById('btnNext');
   if(!btn) return;
   let disabled = false;
-  if(state.step === 'basic') disabled = !state.nome.trim() || !state.empresa.trim();
-  if(state.step === 'areas') disabled = state.selectedAreas.size === 0;
+  if(state.step === 'intro') disabled = !state.nome.trim() || !state.empresa.trim() || state.selectedAreas.size === 0;
   if(state.step === 'modules') disabled = state.selectedModules.size === 0;
   btn.disabled = disabled;
 }
 
 function goBack(){
-  if(state.step === 'basic') state.step = 'welcome';
-  else if(state.step === 'areas') state.step = 'basic';
-  else if(state.step === 'modules') state.step = 'areas';
+  if(state.step === 'modules') state.step = 'intro';
   else if(state.step === 'moduleDetail'){
     if(state.moduleIdx === 0) state.step = 'modules';
     else state.moduleIdx -= 1;
@@ -671,16 +642,14 @@ function goBack(){
 }
 
 function goNext(){
-  if(state.step === 'welcome') state.step = 'basic';
-  else if(state.step === 'basic') state.step = 'areas';
-  else if(state.step === 'areas') state.step = 'modules';
+  if(state.step === 'intro') state.step = 'modules';
   else if(state.step === 'modules'){ state.step = 'moduleDetail'; state.moduleIdx = 0; }
   else if(state.step === 'moduleDetail'){
     const ids = Array.from(state.selectedModules);
     if(state.moduleIdx < ids.length-1) state.moduleIdx += 1;
     else state.step = 'review';
   }
-  else if(state.step === 'review') submitPlan();
+  else if(state.step === 'review'){ submitPlan(); return; }
   render();
 }
 
@@ -688,6 +657,9 @@ function goNext(){
    SUBMISSÃO
    ====================================================================== */
 async function submitPlan(){
+  state.submitting = true;
+  render();
+
   const payload = {
     nome: state.nome,
     empresa: state.empresa,
@@ -720,19 +692,18 @@ async function submitPlan(){
         body: JSON.stringify(payload)
       });
       if(!res.ok) throw new Error('Falha ao enviar: ' + res.status);
-      state.step = 'done';
-      return;
     }catch(err){
       console.error('Erro ao enviar para o Supabase:', err);
       downloadJSON(payload);
-      state.step = 'done';
-      return;
     }
   } else {
     console.log('Supabase não configurado ainda. Payload da resposta:', payload);
     downloadJSON(payload);
-    state.step = 'done';
   }
+
+  state.submitting = false;
+  state.step = 'done';
+  render();
 }
 
 function downloadJSON(payload){
