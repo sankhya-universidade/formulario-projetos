@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel · Universidade Sankhya</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{--navy-900:#0A1628;--navy-700:#162D52;--navy-600:#1E3B68;--green:#2ECC52;--green-dark:#1E9E3E;
+  --bg:#F4F6F8;--card:#FFFFFF;--line:#E3E7EC;--text:#16202E;--text-muted:#5B6675;--radius:12px;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  #app{max-width:1000px;margin:0 auto;padding:24px 20px 80px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,var(--navy-900),var(--navy-700));
+  color:#fff;padding:16px 22px;border-radius:14px;margin-bottom:22px;}
+  .topbar h1{font-size:16px;margin:0;font-weight:600;}
+  .topbar .sub{font-size:12px;color:#C7D0DE;}
+  .btn{font-family:inherit;font-size:13.5px;font-weight:600;padding:9px 16px;border-radius:9px;border:none;cursor:pointer;}
+  .btn-primary{background:var(--green);color:#fff;}
+  .btn-primary:hover{background:var(--green-dark);}
+  .btn-ghost{background:rgba(255,255,255,0.12);color:#fff;}
+  .btn-ghost:hover{background:rgba(255,255,255,0.2);}
+  .btn-line{background:#fff;border:1px solid var(--line);color:var(--text);}
+  .btn-line:hover{border-color:var(--green);}
+  input,textarea{font-family:inherit;font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;width:100%;margin-bottom:12px;}
+  label{font-size:13px;font-weight:600;display:block;margin-bottom:5px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  .tabs{display:flex;gap:8px;margin-bottom:18px;}
+  .tab{padding:9px 16px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--text-muted);}
+  .tab.active{background:var(--navy-700);color:#fff;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);padding:8px 10px;border-bottom:1.5px solid var(--line);}
+  td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:hover td{background:#FAFBFC;}
+  .pill{display:inline-block;font-size:11px;font-weight:600;background:#F1FBF3;color:var(--green-dark);padding:3px 9px;border-radius:12px;margin:2px 3px 0 0;}
+  .row-actions{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  .login-wrap{max-width:360px;margin:80px auto;text-align:center;}
+  .login-wrap h2{font-size:18px;margin-bottom:4px;}
+  .login-wrap p{font-size:13px;color:var(--text-muted);margin-bottom:18px;}
+  .err{color:#B3261E;font-size:13px;margin:-6px 0 12px;}
+  .empty{color:var(--text-muted);font-size:13.5px;padding:24px 0;text-align:center;}
+  .expand-btn{font-size:12px;color:var(--navy-600);font-weight:600;cursor:pointer;background:none;border:none;padding:0;}
+  .detail-row td{background:#FAFBFC;font-size:12.5px;}
+  details.mod-editor{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  details.mod-editor summary{cursor:pointer;font-weight:600;font-size:13.5px;}
+  .g2{display:grid;grid-template-columns:60px 1fr;gap:10px;}
+  .area-title{font-size:13px;font-weight:700;color:var(--navy-600);text-transform:uppercase;letter-spacing:.03em;margin:18px 0 8px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const SUPABASE_URL = 'https://kvajzkyenftmeylocpzk.supabase.co';       // TODO: mesma URL do index.html
+const SUPABASE_ANON_KEY = 'sb_publishable_Fc_MFIi3Ls54zPKXfRIhXA_Mpzdspsa';                 // TODO: mesma anon key do index.html
+
+window.DEFAULT_CONFIG = { AREAS: [
+  {id:'comercial',   name:'Backoffice Comercial',    icon:'🛒', modules:[1,2,3,4,5,6]},
+  {id:'financeiro',  name:'Backoffice Financeiro',    icon:'💵', modules:[7]},
+  {id:'especificos', name:'Conteúdos Específicos',    icon:'🎯', modules:[8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]}
+], MODULES: {
+1:{icon:'🧭',name:'Navegando com Maestria',chips:['Navegando com Maestria'],groups:[
+  {title:'Navegando com Maestria',items:['Como acessar os ícones do menu do sistema','Como identificar o campo de pesquisa de tela','Como acessar a central de ajuda','Como identificar as notificações','Como alterar a senha','Como incluir ou alterar foto do usuário','Como alterar o plano de fundo','Como configurar o lançamento automático de telas ao iniciar o sistema','Como navegar entre diversas telas','Como navegar e manipular os registros nas telas de cadastro','Como utilizar a barra de ferramentas','Como configurar os filtros','Como configurar as telas (modo formulário)','Como configurar grade (modo grade)','Localizando registros utilizando opções de pesquisa','Navegando entre as abas de um registro','Como cadastrar um parceiro','Como cadastrar um produto']}
+]},
+2:{icon:'🛒',name:'Gestão de Compras',chips:['Compras básico','Cotação','MD-e / DF-e (Importação de Xml)','Nota de Nacionalização','Análise de giro','Gerencial de compras'],groups:[
+  {title:'Compras básico',items:['Como registrar um orçamento de compras manual','Como registrar um pedido de compras, utilizando o orçamento','Como realizar liberação de pedido de compra (Evento 44 liberação exigida pela TOP)','Como registrar pedidos de compra manual','Como controlar pedidos de compra pendentes','Como realizar o faturamento do pedido de compra','Como realizar a conferência de produtos na entrada de compras','Como validar a integração do processo de Compras com Financeiro','Como validar a integração do processo de Compras com Estoque','Como registrar compra de frete (CT-e)','Como realizar uma devolução da nota','Como compensar uma devolução','Como identificar a origem da nota de devolução de compra']},
+  {title:'Cotação',items:['Configurações do processo de Cotação','Registro de cotação pela Análise de Giro','Lançamento de Cotação manualmente','Lançamento de Cotação pelo pedido de requisição','Sugestão de fornecedores','Resposta dos fornecedores à cotação','Registro de dados de cotação manualmente','Aprovação da Cotação','Geração do pedido de Compras']},
+  {title:'MD-e / DF-e (Importação de Xml)',items:['Configurações do Portal de Importação de XML','Importação de XML de nota de compra','Importação de compra de CT-e','Configuração MD-e/DF-e']},
+  {title:'Nota de Nacionalização',items:['Principais configurações','Emissão Nota de Nacionalização']},
+  {title:'Análise de Giro (Revenda)',items:['Principais configurações','Como criar uma matriz de giro para produtos de revenda','Como identificar e validar as necessidades de compras apresentadas na matriz','Como gerar os pedidos de compra através das sugestões calculadas']},
+  {title:'Gerencial de Compras',items:['Como identificar a necessidade de compras, Curva ABC, markup praticado, custo do estoque e ponto de pedido através da análise de giro','Gerente online — Dashboard ciclo operacional e financeiro','Gerente online — Dashboard desempenho de produtos','Gerente online — Dashboard compras e vendas','Gerência de parceiros','Gerência de produtos']}
+]},
+3:{icon:'🏷️',name:'Gestão de Precificação',chips:['Apuração de Custos e Formação de Preço'],groups:[
+  {title:'Apuração de Custos e Formação de Preço',items:['Entendendo os custos presentes no Sankhya','Como funcionam as fórmulas de custo e preço','Como utilizar fórmulas de custo específicas para determinados produtos e definir a margem de lucro','Como utilizar a fórmula de custo geral para a empresa','Como acontece a atualização e apuração do custo','Como realizar o recálculo de custos','Como realizar o agendamento do recálculo de custos','Como utilizar a ficha Kardex','Como configurar e cadastrar tabelas de preço','Como atualizar preços de venda (na compra, manualmente e por índice)','Como atualizar o preço de venda pela tela de Recálculo do Preço','Como analisar o preço de venda praticado pela tela Variação de Preço','Como realizar análises na tela Negociação e Simulação de Preço']}
+]},
+4:{icon:'📦',name:'Gestão de Estoque',chips:['Estoque básico','Inventário básico','Requisição interna'],groups:[
+  {title:'Estoque básico',items:['Como é realizada a reserva de mercadorias no estoque','Como validar as entradas de mercadorias no estoque','Como validar as saídas de mercadorias do estoque','Como realizar a transferência entre locais com emissão de nota','Como validar as movimentações de entradas e saídas de estoques','Como emitir e analisar os dados de entradas e saídas do Kardex','Como controlar produtos por local','Como controlar estoque de produtos com grades','Como controlar estoque por validade e priorizar a saída dos produtos próximos ao vencimento','Como realizar o controle adicional de produtos (tamanho, cor, lote, série)','Como controlar os produtos avariados']},
+  {title:'Requisição interna',items:['Como registrar e controlar requisições internas','Como proceder com a devolução de requisições internas']},
+  {title:'Inventário básico',items:['Como realizar a cópia de estoque','Como realizar a cópia de estoque por série','Como realizar a contagem de estoque','Como realizar a contagem de estoque de produtos com série','Como realizar o ajuste de estoque','Como realizar o ajuste de estoque de produtos controlados por série','Como realizar a contagem utilizando coletor','Como analisar o relatório de registro de inventário']}
+]},
+5:{icon:'💰',name:'Gestão de Vendas',chips:['Vendas básico','Nota Fiscal de Serviço','Metas Simplificadas','Gerencial de vendas','Nota de exportação'],groups:[
+  {title:'Vendas básico',items:['Como realizar o lançamento do orçamento','Como faturar o orçamento','Como registrar o pedido de vendas sem vínculo com o orçamento','Como controlar pedidos pendentes','Como realizar o corte de pedidos no Portal de Vendas','Como realizar a conferência dos produtos que serão entregues','Como controlar o fluxo de aprovação e liberar limite de crédito','Como controlar o fluxo de aprovação e liberar desconto','Como classificar corretamente a natureza e o centro de resultado nas vendas','Como faturar o pedido e realizar a emissão da NF-e','Como lançar uma venda sem lançamento de pedido','Como validar a integração do processo de Vendas com Financeiro','Como validar a integração de Vendas com o Estoque','Como validar a integração do processo de Vendas com Contábil Fiscal','Como consultar as negociações com os parceiros','Como realizar devoluções de vendas','Como realizar a compensação financeira da devolução','Como identificar a nota de origem da devolução']},
+  {title:'Gerencial de Vendas',items:['Análise de rentabilidade notas/pedidos','Gerente online — Dashboard margem de contribuição','Gerente online — Dashboards de vendas','Gerência de parceiros','Gerência de produtos','Gerência de vendedores']},
+  {title:'Metas Simplificadas',items:['Definição de Metas Simplificadas','Apuração das metas realizadas']},
+  {title:'Nota de exportação',items:['Principais configurações','Emissão nota de exportação']}
+]},
+6:{icon:'🚚',name:'Gestão de Distribuição',chips:['Distribuição básico','Acerto da ordem de carga','Conhecimento de Transporte - CTE'],groups:[
+  {title:'Distribuição básico',items:['Como criar uma ordem de carga','Como vincular um pedido de Ordem de Carga','Como realizar a formação de carga','Como realizar bloqueio por excesso de carga','Como definir a sequência de entrega conforme a rota','Como calcular frete com escolha de transportadora','Como calcular o frete de forma manual e realizar o rateio por peso','Como realizar o cálculo de frete (valor por fórmula/rateio por peso)','Como calcular o frete conforme a rota e realizar o rateio por valor dos pedidos','Como alterar ordem de carga fechada','Como emitir relatório de separação de mercadorias']},
+  {title:'Acerto da ordem de carga',items:['Como realizar a conferência das notas para acerto da ordem de carga','Como realizar o acerto de ordem de carga','Como gerar diferença do acerto de ordem de carga para o financeiro']},
+  {title:'Conhecimento de Transporte (CT-e)',items:['Como lançar um CT-e Normal, Redespacho, Redespacho Intermediário e Subcontratação','Como lançar um CT-e de Complemento e de Substituição','Como registrar uma Carta de Correção','Como lançar um CT-e Globalizado e Multimodal','Como lançar e cancelar um insucesso de entrega e comprovante de entrega','Como lançar um CT-e OS','Como cancelar o CT-e','Como imprimir o DACTE']}
+]},
+7:{icon:'💵',name:'Gestão Financeira',chips:['Pagamento básico','Recebimento básico','Controle de Caixas e Bancos','Régua de Cobrança/Gerência de Cobrança','Antecipação de Recebíveis','EDI Bancário - Recebimento','Renegociação de títulos','Recebimento via Tef (Controle de Cartão de Crédito)','EDI Bancário - Pagamento','Controle de Cheques','Adiantamentos/Empréstimos e Compensações','Gerencial Financeiro','Análise de Crédito'],groups:[
+  {title:'Pagamento básico',items:['Controle de provisão de contas a pagar de origem nas compras e origem financeira','Registro de contas a pagar de origem financeira','Rateio e parcelamento de títulos de despesas','Conferência de contas a pagar na movimentação financeira','Registro e cálculo de juros e multas de títulos em atraso','Baixa total, parcial e com vários tipos de títulos','Baixa automática de despesas','Autorização de pagamentos','Estorno de título único ou de vários títulos']},
+  {title:'Recebimento básico',items:['Controle de provisões de contas a receber (origem vendas e financeira)','Geração de contas a receber por nota de venda ou lançamento direto','Rateio de títulos de receita','Conferência das contas a receber pela movimentação e agenda financeira','Emissão de boletos','Cálculo de juros e multa em títulos de receitas','Baixa total, parcial e com vários títulos de receitas','Baixa automática de receitas','Estorno de títulos únicos ou múltiplos']},
+  {title:'Controle de Caixas e Bancos',items:['Registrar movimentações bancárias entre contas da empresa','Transferência de títulos entre contas','Registrar rendimentos e juros de empréstimos','Conciliação bancária manual e automática (baixa e extrato OFX)','Controle de contas e saldos']},
+  {title:'Gerencial Financeiro',items:['Gerente online — Dashboards de receitas e despesas','Dashboard de resultados gerais e ciclo operacional financeiro','Relatórios financeiros sintéticos e analíticos','Ficha de parceiros','Fluxo de caixa sintético']}
+]},
+8:{icon:'💰',name:'Comissionamento',chips:['Cálculo e fechamento de comissão'],groups:[]},
+9:{icon:'📋',name:'Reforma Tributária',chips:['Reforma Tributária'],groups:[
+  {title:'Reforma Tributária',items:['Cadastro de Alíquota IBS','Cadastro de Alíquota CBS','Cadastro de Alíquotas IS','Cadastro de Alíquotas Monofásicas IBS/CBS','Atualização nas telas de cadastro — inclusão de novos campos']}
+]},
+10:{icon:'📋',name:'Fiscal',chips:['Fiscal Comércio','Fiscal Serviço','Livros Fiscais','REINF'],groups:[
+  {title:'Fiscal Comércio',items:['Configurações para o cálculo do ICMS e de Pis/Cofins','Relatório de conferência Pis/Cofins','Geração ICMS/IPI e cadastro Livro ICMS/IPI','Registro de entrada e de saída','Ajuste da apuração de ICMS e ICMS ST','Registro de apuração do ICMS','Geração do financeiro do ICMS normal','EFD Fiscal ICMS/IPI e EFD Contribuições PIS/COFINS']},
+  {title:'Fiscal Serviço',items:['Impostos retidos: IRF, INSS, PIS, COFINS, CSLL e ISS','Geração ISS agendamento','Cadastro Livro ISS','Registro de serviço','Conferência dos impostos retidos','Dashboard "Retenção notas de serviço"']}
+]},
+11:{icon:'📚',name:'Contábil',chips:['Operação Contábil - Escrituração Contábil Integrada/Registro e Apuração Contábil','Controle Contábil - Elaboração de Demonstrativos Contábeis'],groups:[
+  {title:'Escrituração Contábil Integrada / Registro e Apuração Contábil',items:['Configurações e cadastros para contabilidade e contabilização','Contabilização de notas de entrada, saída e movimentos financeiros','Contabilização de movimentações bancárias e devedores duvidosos','Registro de lançamentos contábeis manuais','Conciliação de contas','Apuração do resultado do exercício e regime normal (lucro real)','Bloqueio e desbloqueio de lançamentos contábeis']},
+  {title:'Elaboração de Demonstrativos Contábeis',items:['Balanço Patrimonial','Demonstração do Resultado do Exercício (DRE)','DMPL e DLPA','Demonstrativo de Fluxo de Caixa (DFC) e DFC Indireto','Notas Explicativas','Escrituração Contábil Digital (ECD) e Fiscal (ECF)','Elaboração e acompanhamento do orçamento contábil']}
+]},
+12:{icon:'📊',name:'Patrimonial',chips:['Controle Patrimonial'],groups:[
+  {title:'Controle Patrimonial',items:['Cadastro e codificação de bens, classificação por grupos e localização','Operações e movimentação de ativos imobilizados','Armazenar documentos de propriedade dos bens','Gestão de vencimentos de impostos e taxas relacionados a bens','Termo de responsabilidade para bens móveis','Inventário físico de bens e relatórios','Atualização, reavaliação, depreciação, amortização e baixa de bens','Gestão de créditos fiscais de imobilizado e relatório CIAP','Plano de aquisição e reposição, análise de viabilidade e desempenho do capital imobilizado','Controle de manutenção preventiva e saldo devedor em financiamentos']}
+]},
+13:{icon:'⚙️',name:'Contratos',chips:['Regitro e calculo de vencimento','Provisões financeira/ Faturamento de contratos','Reajuste de contratos'],groups:[
+  {title:'Registro e cálculo de vencimento',items:['Registro de contratos de receita e de despesa','Inclusão de serviços e precificação por data de referência','Definição do status do serviço no contrato','Parametrização de faturas com vencimento fixo, dias úteis ou corridos','Cálculo de vencimento pelo tipo de negociação','Acompanhamento da data de término e faturamento parcial (pro rata)']},
+  {title:'Provisões financeiras / Faturamento de contratos',items:['Registro de provisões financeiras fixas e dinâmicas','Rateio financeiro nos contratos','Faturamento simples, agrupado e por múltiplos CNPJs','Agendador para faturamento automático']},
+  {title:'Reajuste de contratos',items:['Acompanhamento de contratos com pendências de reajuste','Reajuste de contratos e validação do novo preço','Agendador para reajuste automático']}
+]},
+14:{icon:'🛍️',name:'Varejo',chips:['PDV WEB - Abertura e Fechamento de Caixa','Emissão de Documentos Fiscais NFC-e','Venda Assistida'],groups:[]},
+15:{icon:'👷',name:'Produção',chips:['Op.Produção','Controle de produção','Planejamento de produção','Gerência de produção'],groups:[
+  {title:'Operação de Produção',items:['Classificação de materiais (PA, PI, MP e subproduto)','Consumo de MP por lote ou série, e controle de variações/substituição','Fabricação de PA por lote ou série, produção em/para terceiros','Desmonte, produção conjunta e reprocessamento','Transformação de MP e PI em PA','Fluxograma dos processos de fabricação','Apontamentos por peso, por operador e registro de perdas']},
+  {title:'Controle de produção',items:['Controle de custos diretos e indiretos de produção','Controle de estoque de produtos consumidos e fabricados','Aprovação/reprovação de laudo e controle de qualidade de MP e PA']},
+  {title:'Planejamento de produção',items:['Ajuste da quantidade a produzir com base na demanda calculada','Análise de necessidade de compra a partir do planejamento','Cálculo de data de pedido considerando lead time e tempo de produção','Geração automática de ordens de produção pelo planejamento','Planejamento por metas de vendas, personalização, pedidos firmes e giro','Sequenciamento de atividades em gráfico de Gantt']},
+  {title:'Gerência de produção',items:['Indicadores de custo previsto x realizado','Acompanhamento de status e volume das ordens de produção','TOP materiais em estoque por volume e valor','Histórico de consumo de matérias-primas e projeção de compra']}
+]},
+16:{icon:'👥',name:'DP - Folha de Pagamento',chips:['Pessoal +','Gestão Pessoas','Pessoas + App'],groups:[
+  {title:'Pessoal +',items:['Cadastro de empresa, colaboradores, dependentes e autônomos','Cargos, salários e reajuste salarial','Cadastro e configuração de eventos e rubricas','Cálculo de rescisão, adiantamento e folha mensal/autônomos','Controle de afastamentos, férias e vencimentos de contratos/ASO','Fechamento e reabertura de folha','Geração de documentos admissionais e de rescisão','Integração financeira da folha de pagamento']},
+  {title:'Gestão Pessoas',items:['Definição de líderes, liderados, prazos e prioridades','Fluxos de requisição: férias, admissão, afastamento, ajuste de ponto, alteração cadastral, dependentes, rescisão, transferência e horas extras','Gestão de liderados no painel de lideranças']},
+  {title:'Pessoas + App',items:['Liberação de acesso ao Portal RH e app Pessoas+']}
+]},
+17:{icon:'🏭',name:'Armazéns de Gerais',chips:['Comercialização de grãos','Armazéns Grãos'],groups:[
+  {title:'Armazéns Grãos',items:['Registro e gerenciamento de contrato de armazenagem','Pedido de armazenagem e controle de portaria','Movimentações de entrada e saída (pesagem, faturamento, NF depósito, laudo de classificação)','Pesagem avulsa, bloqueio/desbloqueio e transferência de propriedade','Extrato do produtor e apuração/faturamento de serviços, quebras e diferenças de balança','Transferência de serviços entre contratos']},
+  {title:'Comercialização de Grãos',items:['Registro de contrato de compra e venda fixada','Pedido a partir do contrato e controle de portaria','Registro de pesagens e geração do romaneio de entrada','Apuração de diferenças e regularização fiscal','Registro de documentos de venda a partir da pesagem']}
+]},
+18:{icon:'🔁',name:'Sankhya Flow',chips:['Sankhya Flow'],groups:[
+  {title:'Sankhya Flow',items:['Principais conceitos e estruturação de um processo','Cadastro de processo e diagrama BPMN','Lançamento dos elementos do fluxo e publicação do processo','Configuração de tarefas de usuário, serviço e e-mail','Configuração de condição de fluxo e gateways','Execução de processo estruturado e tela lista de tarefas','Criação de formulário formatado vinculado a um processo','SLA no Sankhya Flow, configurações, alertas e cards']}
+]},
+19:{icon:'🎯',name:'Gestão Estratégica - GPD',chips:['GPD'],groups:[
+  {title:'GPD',items:['Conceito de gestão estratégica','Cadastro de níveis e unidades gerenciais','Cadastro de indicadores, exercícios e metas gerenciais','Configuração da previsão das metas e apontamento manual','Atualização e apuração do resultado','Análise de causa e efeito','Inserção de planos de ação e geração de OS a partir do plano']}
+]},
+20:{icon:'🧾',name:'Sankhya TAX',chips:['Introdução teórica','Monitoramento e auditoria tributária','Captura e integração Automática de Nota de Serviço'],groups:[]},
+21:{icon:'📦',name:'WMS',chips:['WMS - (Inventário/Recebimento/Expedição)'],groups:[
+  {title:'Inventário / Recebimento / Expedição',items:['Criação de inventário rotativo e geração de tarefas de contagem','Ajuste de estoque por inventário e geração de notas de ajuste','Lançamento de NF de compra e conferência de mercadoria','Armazenagem da mercadoria e envio de pedidos para expedição','Criação de ordem de carga e formação de carga','Envio da OC para expedição e liberação da doca de saída','Faturamento da nota do pedido para nota de venda']}
+]},
+22:{icon:'🎯',name:'Orçamentário e Metas',chips:['Orçamentário e Metas'],groups:[
+  {title:'Orçamentário e Metas',items:['Planejamento orçamentário das despesas','Controle orçamentário das provisões e das despesas reais','Liberação, transferência, suplementação e antecipação orçamentária','Monitoramento da execução do orçamento (previsto x realizado)','Aprovação orçamentária']}
+]},
+23:{icon:'💵',name:'Gestão de Verbas',chips:['Verbas'],groups:[
+  {title:'Verbas',items:['Principais cadastros e registro de acordo de verbas','Registro das compras de produtos','Apuração de acordo de verbas (sell-in) e destinação','Vínculo de bonificações e verbas','Gerência de verbas']}
+]}
+} };
+
+let session = null; // {access_token}
+let tab = 'respostas';
+let respostas = [];
+let config = null; // {AREAS, MODULES}
+let expandedRow = null;
+let loading = false;
+let loginError = '';
+
+const app = document.getElementById('app');
+const configured = SUPABASE_URL.indexOf('SEU-PROJETO') === -1;
+
+function render(){
+  if(!configured){
+    app.innerHTML = `<div class="login-wrap"><h2>Configure o Supabase</h2><p>Edite SUPABASE_URL e SUPABASE_ANON_KEY no topo deste arquivo (os mesmos valores usados no index.html) antes de usar o painel.</p></div>`;
+    return;
+  }
+  if(!session){ renderLogin(); return; }
+  let html = `
+  <div class="topbar">
+    <div><h1>Painel · Universidade Sankhya</h1><div class="sub">Plano de Capacitação — Reconecta</div></div>
+    <button class="btn btn-ghost" id="btnLogout">Sair</button>
+  </div>
+  <div class="tabs">
+    <div class="tab ${tab==='respostas'?'active':''}" data-tab="respostas">Respostas</div>
+    <div class="tab ${tab==='conteudo'?'active':''}" data-tab="conteudo">Conteúdo</div>
+  </div>
+  <div id="tabBody">${tab==='respostas' ? renderRespostas() : renderConteudo()}</div>`;
+  app.innerHTML = html;
+  attachHandlers();
+}
+
+function renderLogin(){
+  app.innerHTML = `
+  <div class="login-wrap">
+    <h2>Painel da Universidade Sankhya</h2>
+    <p>Acesso restrito ao time. Use seu login Supabase.</p>
+    <div class="card" style="text-align:left">
+      <label>E-mail</label>
+      <input type="text" id="loginEmail" placeholder="voce@sankhya.com.br">
+      <label>Senha</label>
+      <input type="password" id="loginSenha">
+      ${loginError ? `<p class="err">${loginError}</p>` : ''}
+      <button class="btn btn-primary" style="width:100%" id="btnLogin">Entrar</button>
+    </div>
+  </div>`;
+  document.getElementById('btnLogin').onclick = doLogin;
+}
+
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  loginError = '';
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body: JSON.stringify({email, password: senha})
+    });
+    const j = await res.json();
+    if(!res.ok || !j.access_token){ loginError = 'E-mail ou senha inválidos.'; render(); return; }
+    session = {access_token: j.access_token};
+    await Promise.all([loadRespostas(), loadConfig()]);
+    render();
+  }catch(e){ loginError = 'Erro ao conectar. Tente novamente.'; render(); }
+}
+
+function authHeaders(){
+  return {apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type':'application/json'};
+}
+
+async function loadRespostas(){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/reconecta_respostas?select=*&order=created_at.desc`, {headers:authHeaders()});
+  respostas = res.ok ? await res.json() : [];
+}
+async function loadConfig(){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/reconecta_config?select=data&id=eq.1`, {headers:authHeaders()});
+  const rows = res.ok ? await res.json() : [];
+  config = (rows[0] && rows[0].data) ? rows[0].data : null;
+}
+
+/* ---------- Respostas (spreadsheet) ---------- */
+function renderRespostas(){
+  if(!respostas.length) return `<div class="empty">Nenhuma resposta ainda.</div>`;
+  const rows = respostas.map((r,i)=>{
+    const mods = (r.respostas||[]);
+    const isOpen = expandedRow === i;
+    return `
+    <tr>
+      <td>${fmtDate(r.created_at)}</td>
+      <td>${esc(r.nome)}</td>
+      <td>${esc(r.empresa)}</td>
+      <td>${mods.length}</td>
+      <td>${mods.map(m=>`<span class="pill">${esc(m.modulo_nome)}</span>`).join('')}</td>
+      <td><button class="expand-btn" data-row="${i}">${isOpen?'Fechar':'Ver detalhes'}</button></td>
+    </tr>
+    ${isOpen ? `<tr class="detail-row"><td colspan="6">${renderDetail(mods)}</td></tr>` : ''}`;
+  }).join('');
+  return `
+  <div class="row-actions">
+    <button class="btn btn-primary" id="btnExport">⬇ Exportar Excel</button>
+    <span style="font-size:13px;color:var(--text-muted)">${respostas.length} resposta${respostas.length!==1?'s':''}</span>
+  </div>
+  <div class="card" style="overflow-x:auto">
+    <table>
+      <tr><th>Data</th><th>Nome</th><th>Empresa</th><th>Módulos</th><th>Selecionados</th><th></th></tr>
+      ${rows}
+    </table>
+  </div>`;
+}
+
+function renderDetail(mods){
+  return mods.map(m=>`
+    <div style="margin-bottom:10px">
+      <strong>${esc(m.modulo_nome)}</strong><br>
+      ${m.topicos && m.topicos.length ? `Tópicos: ${m.topicos.map(esc).join(', ')}<br>` : ''}
+      ${m.outro ? `Outro: ${esc(m.outro)}<br>` : ''}
+      ${m.duvidas ? `Dúvidas: ${esc(m.duvidas)}<br>` : ''}
+      ${m.datas_sugeridas ? `Datas: ${esc(m.datas_sugeridas)}<br>` : ''}
+      ${m.emails_participantes ? `E-mails: ${esc(m.emails_participantes)}` : ''}
+    </div>`).join('');
+}
+
+function exportExcel(){
+  const rows = [];
+  respostas.forEach(r=>{
+    (r.respostas||[]).forEach(m=>{
+      rows.push({
+        Data: fmtDate(r.created_at), Nome: r.nome, Empresa: r.empresa,
+        Modulo: m.modulo_nome, Topicos: (m.topicos||[]).join(', '), Outro: m.outro||'',
+        Duvidas: m.duvidas||'', 'Datas sugeridas': m.datas_sugeridas||'', 'E-mails participantes': m.emails_participantes||''
+      });
+    });
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Respostas');
+  XLSX.writeFile(wb, `respostas-reconecta-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+/* ---------- Conteúdo (editor) ---------- */
+function renderConteudo(){
+  if(!config) return `<div class="empty">Conteúdo remoto ainda não configurado.<br><button class="btn btn-primary" style="margin-top:10px" id="btnSeedConfig">Carregar conteúdo padrão do formulário para editar</button></div>`;
+  const areasHtml = config.AREAS.map(a=>{
+    const modsHtml = a.modules.map(mid=>{
+      const m = config.MODULES[mid];
+      if(!m) return '';
+      return `
+      <details class="mod-editor">
+        <summary>${m.icon} ${m.name}</summary>
+        <div style="margin-top:10px">
+          <div class="g2">
+            <div><label>Ícone</label><input data-f="icon" data-mid="${mid}" value="${esc(m.icon)}"></div>
+            <div><label>Nome do módulo</label><input data-f="name" data-mid="${mid}" value="${esc(m.name)}"></div>
+          </div>
+          <label>Tópicos (um por linha)</label>
+          <textarea data-f="chips" data-mid="${mid}" rows="4">${esc((m.chips||[]).join('\\n'))}</textarea>
+          <label>Conteúdo programático (JSON avançado — opcional)</label>
+          <textarea data-f="groups" data-mid="${mid}" rows="4">${esc(JSON.stringify(m.groups||[], null, 2))}</textarea>
+        </div>
+      </details>`;
+    }).join('');
+    return `<div class="area-title">${esc(a.name)}</div>${modsHtml}`;
+  }).join('');
+  return `
+  <div class="row-actions">
+    <button class="btn btn-primary" id="btnSaveConfig">💾 Salvar alterações</button>
+    <span style="font-size:12.5px;color:var(--text-muted)">As alterações valem para o formulário assim que forem salvas.</span>
+  </div>
+  ${areasHtml}`;
+}
+
+async function saveConfig(){
+  document.querySelectorAll('[data-f]').forEach(el=>{
+    const mid = el.dataset.mid, f = el.dataset.f;
+    const m = config.MODULES[mid];
+    if(!m) return;
+    if(f === 'icon') m.icon = el.value;
+    if(f === 'name') m.name = el.value;
+    if(f === 'chips') m.chips = el.value.split('\\n').map(s=>s.trim()).filter(Boolean);
+    if(f === 'groups'){ try{ m.groups = JSON.parse(el.value); }catch(e){ alert('JSON inválido em "'+m.name+'" — não foi salvo.'); } }
+  });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/reconecta_config`, {
+    method:'POST',
+    headers:{...authHeaders(), 'Prefer':'resolution=merge-duplicates'},
+    body: JSON.stringify({id:1, data: config})
+  });
+  if(res.ok) alert('Conteúdo salvo!'); else alert('Erro ao salvar. Confira as policies do Supabase.');
+}
+
+function seedConfig(){
+  config = window.DEFAULT_CONFIG;
+  render();
+}
+
+/* ---------- util/handlers ---------- */
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){ if(!iso) return ''; const d = new Date(iso); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+
+function attachHandlers(){
+  const logout = document.getElementById('btnLogout');
+  if(logout) logout.onclick = ()=>{ session=null; render(); };
+  document.querySelectorAll('.tab').forEach(el=> el.onclick = ()=>{ tab = el.dataset.tab; expandedRow=null; render(); });
+  document.querySelectorAll('.expand-btn').forEach(el=> el.onclick = ()=>{ const i=parseInt(el.dataset.row); expandedRow = expandedRow===i?null:i; render(); });
+  const exp = document.getElementById('btnExport'); if(exp) exp.onclick = exportExcel;
+  const save = document.getElementById('btnSaveConfig'); if(save) save.onclick = saveConfig;
+  const seed = document.getElementById('btnSeedConfig'); if(seed) seed.onclick = seedConfig;
+}
+
+render();
+</script>
+</body>
+</html>
+
+<!--
+============================================================================
+INSTRUÇÕES — Micheli
+
+1. Repita o SUPABASE_URL e SUPABASE_ANON_KEY iguais aos do index.html.
+
+2. Rode este SQL adicional (além do que já criou para reconecta_respostas):
+
+   create table reconecta_config (
+     id int primary key,
+     data jsonb
+   );
+   alter table reconecta_config enable row level security;
+   create policy "config_read_anon" on reconecta_config for select to anon using (true);
+   create policy "config_write_auth" on reconecta_config for all to authenticated using (true) with check (true);
+
+   -- Permite que o time logado LEIA as respostas (hoje só insert estava liberado):
+   create policy "respostas_read_auth" on reconecta_respostas for select to authenticated using (true);
+
+3. Crie usuários do time em Authentication > Users no painel do Supabase
+   (e-mail + senha) — é esse login que dá acesso a este admin.html.
+
+4. Publique admin.html ao lado do index.html no mesmo GitHub Pages
+   (fica em .../admin.html — não precisa ser público em nenhum menu,
+   basta guardar o link).
+
+5. Aba "Conteúdo": editar aqui e salvar grava no Supabase; o formulário
+   do cliente (index.html) passa a carregar os módulos dali automaticamente
+   (veja a alteração feita no index.html). Se a tabela reconecta_config
+   estiver vazia, clique em "Carregar conteúdo padrão" para começar a partir
+   do que já existe hoje.
+============================================================================
+-->
