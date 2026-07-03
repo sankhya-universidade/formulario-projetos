@@ -34,6 +34,7 @@
   td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;}
   tr:hover td{background:#FAFBFC;}
   .pill{display:inline-block;font-size:11px;font-weight:600;background:#F1FBF3;color:var(--green-dark);padding:3px 9px;border-radius:12px;margin:2px 3px 0 0;}
+  .pill-select{appearance:none;-webkit-appearance:none;border:none;border-radius:12px;padding:5px 10px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;min-width:110px;margin:0;}
   .row-actions{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
   .login-wrap{max-width:360px;margin:80px auto;text-align:center;}
   .login-wrap h2{font-size:18px;margin-bottom:4px;}
@@ -155,6 +156,49 @@ let tab = 'respostas';
 let respostas = [];
 let config = null; // {AREAS, MODULES}
 let expandedRow = null;
+
+const DEFAULT_STATUSES = [
+  {nome:'Agendado', cor:'green'},
+  {nome:'Em andamento', cor:'blue'},
+  {nome:'Concluído', cor:'gray'}
+];
+const DEFAULT_RESPONSAVEIS = [];
+const DEFAULT_PROJETOS = [];
+const PILL_COLORS = {
+  green:['#EAF3DE','#27500A'], blue:['#E6F1FB','#0C447C'], amber:['#FAEEDA','#633806'],
+  coral:['#FAECE7','#4A1B0C'], purple:['#EEEDFE','#26215C'], teal:['#E1F5EE','#04342C'], gray:['#F1EFE8','#2C2C2A']
+};
+function getStatuses(){ return (config && config.STATUSES) || DEFAULT_STATUSES; }
+function getResponsaveis(){ return (config && config.RESPONSAVEIS) || DEFAULT_RESPONSAVEIS; }
+function getProjetos(){ return (config && config.PROJETOS) || DEFAULT_PROJETOS; }
+function statusColorName(nome){ const s = getStatuses().find(x=>x.nome===nome); return s ? s.cor : 'gray'; }
+function pillCss(colorName){ const [bg,fg] = PILL_COLORS[colorName]||PILL_COLORS.gray; return `background:${bg};color:${fg}`; }
+function ensureConfig(){
+  if(!config) config = {AREAS:[], MODULES:{}};
+  if(!config.STATUSES) config.STATUSES = DEFAULT_STATUSES.slice();
+  if(!config.RESPONSAVEIS) config.RESPONSAVEIS = DEFAULT_RESPONSAVEIS.slice();
+  if(!config.PROJETOS) config.PROJETOS = DEFAULT_PROJETOS.slice();
+}
+async function saveConfigSilent(){
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/reconecta_config`, {
+      method:'POST',
+      headers:{...authHeaders(), 'Prefer':'resolution=merge-duplicates'},
+      body: JSON.stringify({id:1, data: config})
+    });
+  }catch(e){ console.error('Erro ao salvar opções', e); }
+}
+async function updateRespostaField(id, field, value){
+  const r = respostas.find(x=>x.id===id);
+  if(r) r[field] = value;
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/reconecta_respostas?id=eq.${id}`, {
+      method:'PATCH',
+      headers:{...authHeaders(), 'Prefer':'return=minimal'},
+      body: JSON.stringify({[field]: value})
+    });
+  }catch(e){ console.error('Erro ao atualizar resposta', e); }
+}
 let loading = false;
 let loginError = '';
 
@@ -281,6 +325,9 @@ function renderRespostas(){
   const rows = respostas.map((r,i)=>{
     const mods = (r.respostas||[]);
     const isOpen = expandedRow === i;
+    const statusOpts = getStatuses().map(s=>`<option value="${esc(s.nome)}" ${r.status===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('');
+    const respOpts = getResponsaveis().map(nm=>`<option value="${esc(nm)}" ${r.responsavel===nm?'selected':''}>${esc(nm)}</option>`).join('');
+    const projOpts = getProjetos().map(nm=>`<option value="${esc(nm)}" ${r.projeto===nm?'selected':''}>${esc(nm)}</option>`).join('');
     return `
     <tr>
       <td>${fmtDate(r.created_at)}</td>
@@ -288,9 +335,18 @@ function renderRespostas(){
       <td>${esc(r.empresa)}</td>
       <td>${mods.length}</td>
       <td>${mods.map(m=>`<span class="pill">${esc(m.modulo_nome)}</span>`).join('')}</td>
+      <td><select class="pill-select status-select" data-id="${r.id}" style="${pillCss(statusColorName(r.status))}">
+        <option value="">—</option>${statusOpts}<option value="__new__">+ Novo status…</option>
+      </select></td>
+      <td><select class="pill-select resp-select" data-id="${r.id}" style="${pillCss('purple')}">
+        <option value="">—</option>${respOpts}<option value="__new__">+ Novo responsável…</option>
+      </select></td>
+      <td><select class="pill-select proj-select" data-id="${r.id}" style="${pillCss('teal')}">
+        <option value="">—</option>${projOpts}<option value="__new__">+ Novo projeto…</option>
+      </select></td>
       <td><button class="expand-btn" data-row="${i}">${isOpen?'Fechar':'Ver detalhes'}</button></td>
     </tr>
-    ${isOpen ? `<tr class="detail-row"><td colspan="6">${renderDetail(mods)}</td></tr>` : ''}`;
+    ${isOpen ? `<tr class="detail-row"><td colspan="9">${renderDetail(mods)}</td></tr>` : ''}`;
   }).join('');
   return `
   <div class="row-actions">
@@ -299,7 +355,7 @@ function renderRespostas(){
   </div>
   <div class="card" style="overflow-x:auto">
     <table>
-      <tr><th>Data</th><th>Nome</th><th>Empresa</th><th>Módulos</th><th>Selecionados</th><th></th></tr>
+      <tr><th>Data</th><th>Nome</th><th>Empresa</th><th>Módulos</th><th>Selecionados</th><th>Status</th><th>Responsável</th><th>Projeto</th><th></th></tr>
       ${rows}
     </table>
   </div>`;
@@ -323,6 +379,7 @@ function exportExcel(){
     (r.respostas||[]).forEach(m=>{
       rows.push({
         Data: fmtDate(r.created_at), Nome: r.nome, Empresa: r.empresa,
+        Status: r.status||'', Responsavel: r.responsavel||'', Projeto: r.projeto||'',
         Modulo: m.modulo_nome, Topicos: (m.topicos||[]).join(', '), Outro: m.outro||'',
         Duvidas: m.duvidas||'', 'Datas sugeridas': m.datas_sugeridas||'', 'E-mails participantes': m.emails_participantes||''
       });
@@ -336,7 +393,7 @@ function exportExcel(){
 
 /* ---------- Conteúdo (editor) ---------- */
 function renderConteudo(){
-  if(!config) return `<div class="empty">Conteúdo remoto ainda não configurado.<br><button class="btn btn-primary" style="margin-top:10px" id="btnSeedConfig">Carregar conteúdo padrão do formulário para editar</button></div>`;
+  if(!config || !config.AREAS) return `<div class="empty">Conteúdo remoto ainda não configurado.<br><button class="btn btn-primary" style="margin-top:10px" id="btnSeedConfig">Carregar conteúdo padrão do formulário para editar</button></div>`;
   const areasHtml = config.AREAS.map(a=>{
     const modsHtml = a.modules.map(mid=>{
       const m = config.MODULES[mid];
@@ -385,7 +442,7 @@ async function saveConfig(){
 }
 
 function seedConfig(){
-  config = window.DEFAULT_CONFIG;
+  config = { ...window.DEFAULT_CONFIG, STATUSES: (config&&config.STATUSES)||undefined, RESPONSAVEIS: (config&&config.RESPONSAVEIS)||undefined, PROJETOS: (config&&config.PROJETOS)||undefined };
   render();
 }
 
@@ -398,7 +455,53 @@ function attachHandlers(){
   if(logout) logout.onclick = ()=>{ session=null; render(); };
   document.querySelectorAll('.tab').forEach(el=> el.onclick = ()=>{ tab = el.dataset.tab; expandedRow=null; render(); });
   document.querySelectorAll('.expand-btn').forEach(el=> el.onclick = ()=>{ const i=parseInt(el.dataset.row); expandedRow = expandedRow===i?null:i; render(); });
+  document.querySelectorAll('.proj-select').forEach(el=>{
+    el.onchange = async ()=>{
+      if(el.value === '__new__'){
+        const nome = (prompt('Nome do novo projeto:')||'').trim();
+        if(!nome){ render(); return; }
+        ensureConfig();
+        if(!config.PROJETOS.includes(nome)) config.PROJETOS.push(nome);
+        await saveConfigSilent();
+        await updateRespostaField(el.dataset.id, 'projeto', nome);
+      } else {
+        await updateRespostaField(el.dataset.id, 'projeto', el.value);
+      }
+      render();
+    };
+  });
   const exp = document.getElementById('btnExport'); if(exp) exp.onclick = exportExcel;
+  document.querySelectorAll('.status-select').forEach(el=>{
+    el.onchange = async ()=>{
+      if(el.value === '__new__'){
+        const nome = (prompt('Nome do novo status:')||'').trim();
+        if(!nome){ render(); return; }
+        ensureConfig();
+        const colors=['green','blue','amber','coral','purple','teal','gray'];
+        if(!config.STATUSES.find(s=>s.nome===nome)) config.STATUSES.push({nome, cor: colors[config.STATUSES.length % colors.length]});
+        await saveConfigSilent();
+        await updateRespostaField(el.dataset.id, 'status', nome);
+      } else {
+        await updateRespostaField(el.dataset.id, 'status', el.value);
+      }
+      render();
+    };
+  });
+  document.querySelectorAll('.resp-select').forEach(el=>{
+    el.onchange = async ()=>{
+      if(el.value === '__new__'){
+        const nome = (prompt('Nome do responsável:')||'').trim();
+        if(!nome){ render(); return; }
+        ensureConfig();
+        if(!config.RESPONSAVEIS.includes(nome)) config.RESPONSAVEIS.push(nome);
+        await saveConfigSilent();
+        await updateRespostaField(el.dataset.id, 'responsavel', nome);
+      } else {
+        await updateRespostaField(el.dataset.id, 'responsavel', el.value);
+      }
+      render();
+    };
+  });
   const save = document.getElementById('btnSaveConfig'); if(save) save.onclick = saveConfig;
   const seed = document.getElementById('btnSeedConfig'); if(seed) seed.onclick = seedConfig;
 }
