@@ -594,8 +594,8 @@ function attachHandlers(){
 
   const inpNome = document.getElementById('inpNome');
   const inpEmpresa = document.getElementById('inpEmpresa');
-  if(inpNome) inpNome.oninput = e=> state.nome = e.target.value;
-  if(inpEmpresa) inpEmpresa.oninput = e=> state.empresa = e.target.value;
+  if(inpNome) inpNome.oninput = e=>{ state.nome = e.target.value; updateNextButtonState(); };
+  if(inpEmpresa) inpEmpresa.oninput = e=>{ state.empresa = e.target.value; updateNextButtonState(); };
 
   document.querySelectorAll('.area-card').forEach(el=>{
     el.onclick = ()=>{
@@ -643,6 +643,16 @@ function attachHandlers(){
       d[key] = e.target.value;
     };
   });
+}
+
+function updateNextButtonState(){
+  const btn = document.getElementById('btnNext');
+  if(!btn) return;
+  let disabled = false;
+  if(state.step === 'basic') disabled = !state.nome.trim() || !state.empresa.trim();
+  if(state.step === 'areas') disabled = state.selectedAreas.size === 0;
+  if(state.step === 'modules') disabled = state.selectedModules.size === 0;
+  btn.disabled = disabled;
 }
 
 function goBack(){
