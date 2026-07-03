@@ -150,6 +150,7 @@ window.DEFAULT_CONFIG = { AREAS: [
 } };
 
 let session = null; // {access_token}
+let authMode = 'login';
 let tab = 'respostas';
 let respostas = [];
 let config = null; // {AREAS, MODULES}
@@ -181,20 +182,65 @@ function render(){
 }
 
 function renderLogin(){
+  const isSignup = authMode === 'signup';
   app.innerHTML = `
   <div class="login-wrap">
     <h2>Painel da Universidade Sankhya</h2>
-    <p>Acesso restrito ao time. Use seu login Supabase.</p>
+    <p>${isSignup ? 'Crie sua conta com e-mail @sankhya.com.br.' : 'Acesso restrito ao time. Use seu login Supabase.'}</p>
     <div class="card" style="text-align:left">
       <label>E-mail</label>
       <input type="text" id="loginEmail" placeholder="voce@sankhya.com.br">
       <label>Senha</label>
       <input type="password" id="loginSenha">
       ${loginError ? `<p class="err">${loginError}</p>` : ''}
-      <button class="btn btn-primary" style="width:100%" id="btnLogin">Entrar</button>
+      <button class="btn btn-primary" style="width:100%" id="btnLogin">${isSignup ? 'Criar conta' : 'Entrar'}</button>
+      <p style="text-align:center;font-size:12.5px;margin-top:12px">
+        <a href="#" id="toggleAuthMode" style="color:var(--navy-600);font-weight:600">${isSignup ? 'Já tem conta? Entrar' : 'Não tem conta? Criar conta'}</a>
+      </p>
     </div>
   </div>`;
-  document.getElementById('btnLogin').onclick = doLogin;
+  document.getElementById('btnLogin').onclick = isSignup ? doSignup : doLogin;
+  document.getElementById('toggleAuthMode').onclick = (e)=>{
+    e.preventDefault();
+    authMode = isSignup ? 'login' : 'signup';
+    loginError = '';
+    render();
+  };
+}
+
+async function doSignup(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  loginError = '';
+  if(!/^[A-Za-z0-9._%+-]+@sankhya\.com\.br$/i.test(email)){
+    loginError = 'Use um e-mail @sankhya.com.br para criar a conta.';
+    render();
+    return;
+  }
+  if(senha.length < 6){
+    loginError = 'A senha precisa ter pelo menos 6 caracteres.';
+    render();
+    return;
+  }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body: JSON.stringify({email, password: senha})
+    });
+    const j = await res.json();
+    if(!res.ok){ loginError = j.msg || j.error_description || 'Não foi possível criar a conta.'; render(); return; }
+    if(j.access_token){
+      session = {access_token: j.access_token};
+      await Promise.all([loadRespostas(), loadConfig()]);
+      render();
+    } else {
+      loginError = '';
+      authMode = 'login';
+      alert('Conta criada! Faça login para continuar.');
+      render();
+    }
+  }catch(e){ loginError = 'Erro ao conectar. Tente novamente.'; render(); }
 }
 
 async function doLogin(){
@@ -394,4 +440,4 @@ INSTRUÇÕES — Micheli
    estiver vazia, clique em "Carregar conteúdo padrão" para começar a partir
    do que já existe hoje.
 ============================================================================
--->  
+-->
