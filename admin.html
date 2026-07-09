@@ -49,6 +49,11 @@
   .g2{display:grid;grid-template-columns:60px 1fr;gap:10px;}
   .area-title{font-size:13px;font-weight:700;color:var(--navy-600);text-transform:uppercase;letter-spacing:.03em;margin:18px 0 8px;}
   .group-editor{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#FAFBFC;}
+  .btn-danger{background:#FDECEA;color:#B3261E;}
+  .btn-danger:hover{background:#FBDAD6;}
+  .btn-danger:disabled{background:#F1EFE8;color:#B7B2A6;cursor:not-allowed;}
+  .btn-delete-row{background:none;border:none;cursor:pointer;font-size:13px;opacity:.55;padding:2px 4px;}
+  .btn-delete-row:hover{opacity:1;}
   .btn-remove-module{background:none;border:none;cursor:pointer;font-size:13px;opacity:.6;float:right;}
   .btn-remove-module:hover{opacity:1;}
   details.mod-editor summary{display:flex;align-items:center;justify-content:space-between;}
@@ -203,6 +208,7 @@ let tab = 'respostas';
 let respostas = [];
 let config = null; // {HERO, AREAS, MODULES, STATUSES, RESPONSAVEIS, PROJETOS}
 let expandedRow = null;
+let selectedIds = new Set();
 
 const DEFAULT_STATUSES = [
   {nome:'Agendado', cor:'green'},
@@ -237,6 +243,33 @@ async function saveConfigSilent(){
     });
   }catch(e){ console.error('Erro ao salvar opções', e); }
 }
+async function deleteResponses(ids){
+  if(!ids.length) return;
+  const items = respostas.filter(r=>ids.includes(r.id));
+  const list = items.map(r=>`• ${r.nome} — ${r.empresa}`).join('\n');
+  const step1 = confirm(`Você está prestes a excluir ${ids.length} resposta${ids.length!==1?'s':''}:\n\n${list}\n\nEssa ação é DEFINITIVA — o cliente precisaria preencher tudo de novo. Continuar?`);
+  if(!step1) return;
+  const typed = prompt(`Para confirmar de vez, digite o número ${ids.length} (só o número) abaixo:`);
+  if(typed === null) return;
+  if(typed.trim() !== String(ids.length)){
+    alert('Número não confere. Nada foi excluído.');
+    return;
+  }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/reconecta_respostas?id=in.(${ids.join(',')})`, {
+      method:'DELETE',
+      headers:{...authHeaders(), 'Prefer':'return=minimal'}
+    });
+    if(!res.ok){
+      alert('Erro ao excluir. Confira se a policy de delete foi criada no Supabase.');
+      return;
+    }
+    respostas = respostas.filter(r=>!ids.includes(r.id));
+    ids.forEach(id=>selectedIds.delete(id));
+    render();
+  }catch(e){ alert('Erro de conexão ao excluir.'); }
+}
+
 async function updateRespostaField(id, field, value){
   const r = respostas.find(x=>x.id===id);
   if(r) r[field] = value;
@@ -375,14 +408,17 @@ async function loadConfig(){
 /* ---------- Respostas (spreadsheet) ---------- */
 function renderRespostas(){
   if(!respostas.length) return `<div class="empty">Nenhuma resposta ainda.</div>`;
+  const allChecked = respostas.length>0 && respostas.every(r=>selectedIds.has(r.id));
   const rows = respostas.map((r,i)=>{
     const mods = (r.respostas||[]);
     const isOpen = expandedRow === i;
+    const checked = selectedIds.has(r.id);
     const statusOpts = getStatuses().map(s=>`<option value="${esc(s.nome)}" ${r.status===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('');
     const respOpts = getResponsaveis().map(nm=>`<option value="${esc(nm)}" ${r.responsavel===nm?'selected':''}>${esc(nm)}</option>`).join('');
     const projOpts = getProjetos().map(nm=>`<option value="${esc(nm)}" ${r.projeto===nm?'selected':''}>${esc(nm)}</option>`).join('');
     return `
     <tr>
+      <td><input type="checkbox" class="row-check" data-id="${r.id}" ${checked?'checked':''}></td>
       <td>${fmtDate(r.created_at)}</td>
       <td>${esc(r.nome)}</td>
       <td>${esc(r.empresa)}</td>
@@ -397,18 +433,19 @@ function renderRespostas(){
       <td><select class="pill-select proj-select" data-id="${r.id}" style="${pillCss('teal')}">
         <option value="">—</option>${projOpts}<option value="__new__">+ Novo projeto…</option>
       </select></td>
-      <td><button class="expand-btn" data-row="${i}">${isOpen?'Fechar':'Ver detalhes'}</button></td>
+      <td style="white-space:nowrap"><button class="expand-btn" data-row="${i}">${isOpen?'Fechar':'Ver detalhes'}</button> <button class="btn-delete-row" data-id="${r.id}" title="Excluir esta resposta">🗑</button></td>
     </tr>
-    ${isOpen ? `<tr class="detail-row"><td colspan="9">${renderDetail(mods)}</td></tr>` : ''}`;
+    ${isOpen ? `<tr class="detail-row"><td colspan="10">${renderDetail(mods)}</td></tr>` : ''}`;
   }).join('');
   return `
   <div class="row-actions">
     <button class="btn btn-primary" id="btnExport">⬇ Exportar Excel</button>
+    <button class="btn btn-danger" id="btnDeleteSelected" ${selectedIds.size===0?'disabled':''}>🗑 Excluir selecionadas (${selectedIds.size})</button>
     <span style="font-size:13px;color:var(--text-muted)">${respostas.length} resposta${respostas.length!==1?'s':''}</span>
   </div>
   <div class="card" style="overflow-x:auto">
     <table>
-      <tr><th>Data</th><th>Nome</th><th>Empresa</th><th>Módulos</th><th>Selecionados</th><th>Status</th><th>Responsável</th><th>Projeto</th><th></th></tr>
+      <tr><th><input type="checkbox" id="checkAll" ${allChecked?'checked':''}></th><th>Data</th><th>Nome</th><th>Empresa</th><th>Módulos</th><th>Selecionados</th><th>Status</th><th>Responsável</th><th>Projeto</th><th></th></tr>
       ${rows}
     </table>
   </div>`;
@@ -626,6 +663,24 @@ function attachHandlers(){
     };
   });
   const exp = document.getElementById('btnExport'); if(exp) exp.onclick = exportExcel;
+  const checkAll = document.getElementById('checkAll');
+  if(checkAll) checkAll.onclick = ()=>{
+    if(checkAll.checked) respostas.forEach(r=>selectedIds.add(r.id));
+    else selectedIds.clear();
+    render();
+  };
+  document.querySelectorAll('.row-check').forEach(el=>{
+    el.onclick = ()=>{
+      const id = el.dataset.id;
+      selectedIds.has(id) ? selectedIds.delete(id) : selectedIds.add(id);
+      render();
+    };
+  });
+  const btnDel = document.getElementById('btnDeleteSelected');
+  if(btnDel) btnDel.onclick = ()=> deleteResponses(Array.from(selectedIds));
+  document.querySelectorAll('.btn-delete-row').forEach(el=>{
+    el.onclick = ()=> deleteResponses([el.dataset.id]);
+  });
   document.querySelectorAll('.status-select').forEach(el=>{
     el.onchange = async ()=>{
       if(el.value === '__new__'){
