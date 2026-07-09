@@ -48,6 +48,10 @@
   details.mod-editor summary{cursor:pointer;font-weight:600;font-size:13.5px;}
   .g2{display:grid;grid-template-columns:60px 1fr;gap:10px;}
   .area-title{font-size:13px;font-weight:700;color:var(--navy-600);text-transform:uppercase;letter-spacing:.03em;margin:18px 0 8px;}
+  .group-editor{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:#FAFBFC;}
+  .btn-remove-module{background:none;border:none;cursor:pointer;font-size:13px;opacity:.6;float:right;}
+  .btn-remove-module:hover{opacity:1;}
+  details.mod-editor summary{display:flex;align-items:center;justify-content:space-between;}
 </style>
 </head>
 <body>
@@ -56,11 +60,18 @@
 const SUPABASE_URL = 'https://kvajzkyenftmeylocpzk.supabase.co';       // TODO: mesma URL do index.html
 const SUPABASE_ANON_KEY = 'sb_publishable_Fc_MFIi3Ls54zPKXfRIhXA_Mpzdspsa';                 // TODO: mesma anon key do index.html
 
-window.DEFAULT_CONFIG = { AREAS: [
+window.DEFAULT_CONFIG = {
+  HERO: {
+  badge: 'Universidade Sankhya · Plano de Capacitação Personalizado',
+  title: 'Você foi selecionado(a) para uma ação gratuita da Universidade Sankhya',
+  subtitle: 'O objetivo é ajudar a otimizar o uso do ERP e melhorar seus processos. Monte seu roteiro em poucos passos — você escolhe só o que faz sentido pro seu time.'
+},
+  AREAS: [
   {id:'comercial',   name:'Backoffice Comercial',    icon:'🛒', modules:[1,2,3,4,5,6]},
   {id:'financeiro',  name:'Backoffice Financeiro',    icon:'💵', modules:[7]},
   {id:'especificos', name:'Conteúdos Específicos',    icon:'🎯', modules:[8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]}
-], MODULES: {
+],
+  MODULES: {
 1:{icon:'🧭',name:'Navegando com Maestria',chips:['Navegando com Maestria'],groups:[
   {title:'Navegando com Maestria',items:['Como acessar os ícones do menu do sistema','Como identificar o campo de pesquisa de tela','Como acessar a central de ajuda','Como identificar as notificações','Como alterar a senha','Como incluir ou alterar foto do usuário','Como alterar o plano de fundo','Como configurar o lançamento automático de telas ao iniciar o sistema','Como navegar entre diversas telas','Como navegar e manipular os registros nas telas de cadastro','Como utilizar a barra de ferramentas','Como configurar os filtros','Como configurar as telas (modo formulário)','Como configurar grade (modo grade)','Localizando registros utilizando opções de pesquisa','Navegando entre as abas de um registro','Como cadastrar um parceiro','Como cadastrar um produto']}
 ]},
@@ -155,7 +166,9 @@ window.DEFAULT_CONFIG = { AREAS: [
 25:{icon:'🎓',name:'Universidade Sankhya',chips:['Gestão da Universidade Sankhya'],groups:[
   {title:'Gestão da Universidade Sankhya',items:['Conhecendo a plataforma Universidade Sankhya e seus menus','Como cadastrar, editar e gerenciar alunos na plataforma','Como matricular alunos por usuários modelos e categorias','Como realizar a importação e matrícula em massa de usuários por meio de planilha modelo','Como utilizar dashboards e relatórios para acompanhar o progresso, engajamento e desenvolvimento do seu time','Conhecendo a Comunidade Sankhya como ferramenta de apoio à aprendizagem contínua']}
 ]}
-} };
+}
+};
+
 let session = null; // {access_token, refresh_token}
 
 function saveSession(s){
@@ -188,7 +201,7 @@ async function restoreSession(){
 let authMode = 'login';
 let tab = 'respostas';
 let respostas = [];
-let config = null; // {AREAS, MODULES}
+let config = null; // {HERO, AREAS, MODULES, STATUSES, RESPONSAVEIS, PROJETOS}
 let expandedRow = null;
 
 const DEFAULT_STATUSES = [
@@ -210,6 +223,7 @@ function statusColorName(nome){ const s = getStatuses().find(x=>x.nome===nome); 
 function pillCss(colorName){ const [bg,fg] = PILL_COLORS[colorName]||PILL_COLORS.gray; return `background:${bg};color:${fg}`; }
 function ensureConfig(){
   if(!config) config = {AREAS:[], MODULES:{}};
+  if(!config.HERO) config.HERO = {...(window.DEFAULT_CONFIG.HERO||{})};
   if(!config.STATUSES) config.STATUSES = DEFAULT_STATUSES.slice();
   if(!config.RESPONSAVEIS) config.RESPONSAVEIS = DEFAULT_RESPONSAVEIS.slice();
   if(!config.PROJETOS) config.PROJETOS = DEFAULT_PROJETOS.slice();
@@ -433,38 +447,75 @@ function exportExcel(){
 /* ---------- Conteúdo (editor) ---------- */
 function renderConteudo(){
   if(!config || !config.AREAS) return `<div class="empty">Conteúdo remoto ainda não configurado.<br><button class="btn btn-primary" style="margin-top:10px" id="btnSeedConfig">Carregar conteúdo padrão do formulário para editar</button></div>`;
+  const hero = config.HERO || {};
+
+  const heroHtml = `
+  <div class="card" style="margin-bottom:18px">
+    <p class="area-title" style="margin-top:0">Cabeçalho do formulário (tela do cliente)</p>
+    <label>Selo (texto pequeno verde)</label>
+    <input id="heroBadge" value="${esc(hero.badge)}">
+    <label>Título principal</label>
+    <input id="heroTitle" value="${esc(hero.title)}">
+    <label>Texto de apoio</label>
+    <textarea id="heroSubtitle" rows="3">${esc(hero.subtitle)}</textarea>
+  </div>`;
+
   const areasHtml = config.AREAS.map(a=>{
     const modsHtml = a.modules.map(mid=>{
       const m = config.MODULES[mid];
       if(!m) return '';
+      const groupsHtml = (m.groups||[]).map((g,gi)=>`
+        <div class="group-editor" data-mid="${mid}" data-gidx="${gi}">
+          <div class="g2">
+            <div style="grid-column:1/3"><label>Nome da seção</label><input data-gf="title" value="${esc(g.title)}"></div>
+          </div>
+          <label>Itens (um por linha)</label>
+          <textarea data-gf="items" rows="4">${esc((g.items||[]).join('\\n'))}</textarea>
+          <button class="btn btn-line btn-remove-group" style="margin-top:6px">🗑 Remover esta seção</button>
+        </div>`).join('');
       return `
       <details class="mod-editor">
-        <summary>${m.icon} ${m.name}</summary>
+        <summary>${m.icon} ${m.name} <button class="btn-remove-module" data-mid="${mid}" title="Remover módulo">🗑</button></summary>
         <div style="margin-top:10px">
           <div class="g2">
-            <div><label>Ícone</label><input data-f="icon" data-mid="${mid}" value="${esc(m.icon)}"></div>
+            <div><label>Ícone (emoji)</label><input data-f="icon" data-mid="${mid}" value="${esc(m.icon)}"></div>
             <div><label>Nome do módulo</label><input data-f="name" data-mid="${mid}" value="${esc(m.name)}"></div>
           </div>
-          <label>Tópicos (um por linha)</label>
+          <label>Tópicos que o cliente pode escolher (um por linha)</label>
           <textarea data-f="chips" data-mid="${mid}" rows="4">${esc((m.chips||[]).join('\\n'))}</textarea>
-          <label>Conteúdo programático (JSON avançado — opcional)</label>
-          <textarea data-f="groups" data-mid="${mid}" rows="4">${esc(JSON.stringify(m.groups||[], null, 2))}</textarea>
+          <label>Conteúdo programático (o que aparece em "ver conteúdo completo")</label>
+          <div class="groups-wrap" data-mid="${mid}">${groupsHtml}</div>
+          <button class="btn btn-line btn-add-group" data-mid="${mid}" style="margin-top:8px">+ Adicionar seção de conteúdo</button>
         </div>
       </details>`;
     }).join('');
-    return `<div class="area-title">${esc(a.name)}</div>${modsHtml}`;
+    return `
+    <div class="area-title">${esc(a.name)}</div>
+    ${modsHtml}
+    <button class="btn btn-line btn-add-module" data-area="${a.id}" style="margin:6px 0 20px">+ Adicionar módulo em "${esc(a.name)}"</button>`;
   }).join('');
+
   return `
   <div class="row-actions">
     <button class="btn btn-primary" id="btnSaveConfig">💾 Salvar alterações</button>
     <button class="btn btn-line" id="btnSeedConfig">↻ Recarregar módulos padrão</button>
     <span style="font-size:12.5px;color:var(--text-muted)">As alterações valem para o formulário assim que forem salvas.</span>
-    <span style="font-size:12.5px;color:var(--text-muted);flex-basis:100%">"Recarregar módulos padrão" adiciona módulos novos do formulário original sem apagar edições já feitas em módulos existentes.</span>
+    <span style="font-size:12.5px;color:var(--text-muted);flex-basis:100%">"Recarregar módulos padrão" adiciona módulos novos do formulário original sem apagar edições já feitas.</span>
   </div>
+  ${heroHtml}
   ${areasHtml}`;
 }
 
-async function saveConfig(){
+function syncFormToConfig(){
+  if(!config) return;
+  const heroBadge = document.getElementById('heroBadge');
+  if(heroBadge){
+    config.HERO = {
+      badge: heroBadge.value,
+      title: document.getElementById('heroTitle').value,
+      subtitle: document.getElementById('heroSubtitle').value
+    };
+  }
   document.querySelectorAll('[data-f]').forEach(el=>{
     const mid = el.dataset.mid, f = el.dataset.f;
     const m = config.MODULES[mid];
@@ -472,14 +523,61 @@ async function saveConfig(){
     if(f === 'icon') m.icon = el.value;
     if(f === 'name') m.name = el.value;
     if(f === 'chips') m.chips = el.value.split('\\n').map(s=>s.trim()).filter(Boolean);
-    if(f === 'groups'){ try{ m.groups = JSON.parse(el.value); }catch(e){ alert('JSON inválido em "'+m.name+'" — não foi salvo.'); } }
   });
+  document.querySelectorAll('.group-editor').forEach(el=>{
+    const mid = el.dataset.mid, gi = parseInt(el.dataset.gidx);
+    const m = config.MODULES[mid];
+    if(!m || !m.groups || !m.groups[gi]) return;
+    const titleEl = el.querySelector('[data-gf="title"]');
+    const itemsEl = el.querySelector('[data-gf="items"]');
+    m.groups[gi].title = titleEl.value;
+    m.groups[gi].items = itemsEl.value.split('\\n').map(s=>s.trim()).filter(Boolean);
+  });
+}
+
+async function saveConfig(){
+  syncFormToConfig();
   const res = await fetch(`${SUPABASE_URL}/rest/v1/reconecta_config`, {
     method:'POST',
     headers:{...authHeaders(), 'Prefer':'resolution=merge-duplicates'},
     body: JSON.stringify({id:1, data: config})
   });
   if(res.ok) alert('Conteúdo salvo!'); else alert('Erro ao salvar. Confira as policies do Supabase.');
+}
+
+function addGroup(mid){
+  syncFormToConfig();
+  const m = config.MODULES[mid];
+  if(!m) return;
+  if(!m.groups) m.groups = [];
+  m.groups.push({title:'Nova seção', items:[]});
+  render();
+}
+function removeGroup(mid, gi){
+  syncFormToConfig();
+  const m = config.MODULES[mid];
+  if(!m || !m.groups) return;
+  m.groups.splice(gi,1);
+  render();
+}
+function addModule(areaId){
+  const nome = (prompt('Nome do novo módulo:')||'').trim();
+  if(!nome) return;
+  const icone = (prompt('Ícone (um emoji, opcional):','📁')||'📁').trim() || '📁';
+  syncFormToConfig();
+  const area = config.AREAS.find(a=>a.id===areaId);
+  if(!area) return;
+  const id = 'custom_' + Date.now();
+  config.MODULES[id] = {icon: icone, name: nome, chips: [], groups: []};
+  area.modules.push(id);
+  render();
+}
+function removeModule(mid){
+  if(!confirm('Remover este módulo do formulário? Essa ação não pode ser desfeita depois de salvar.')) return;
+  syncFormToConfig();
+  delete config.MODULES[mid];
+  config.AREAS.forEach(a=>{ a.modules = a.modules.filter(id => String(id) !== String(mid)); });
+  render();
 }
 
 function seedConfig(){
@@ -561,6 +659,21 @@ function attachHandlers(){
   });
   const save = document.getElementById('btnSaveConfig'); if(save) save.onclick = saveConfig;
   const seed = document.getElementById('btnSeedConfig'); if(seed) seed.onclick = seedConfig;
+  document.querySelectorAll('.btn-add-group').forEach(el=>{
+    el.onclick = ()=> addGroup(el.dataset.mid);
+  });
+  document.querySelectorAll('.btn-remove-group').forEach(el=>{
+    el.onclick = ()=>{
+      const wrap = el.closest('.group-editor');
+      removeGroup(wrap.dataset.mid, parseInt(wrap.dataset.gidx));
+    };
+  });
+  document.querySelectorAll('.btn-add-module').forEach(el=>{
+    el.onclick = ()=> addModule(el.dataset.area);
+  });
+  document.querySelectorAll('.btn-remove-module').forEach(el=>{
+    el.onclick = (e)=>{ e.preventDefault(); e.stopPropagation(); removeModule(el.dataset.mid); };
+  });
 }
 
 render();
