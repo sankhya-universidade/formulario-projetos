@@ -156,6 +156,53 @@ window.DEFAULT_CONFIG = { AREAS: [
   {title:'Gestão da Universidade Sankhya',items:['Conhecendo a plataforma Universidade Sankhya e seus menus','Como cadastrar, editar e gerenciar alunos na plataforma','Como matricular alunos por usuários modelos e categorias','Como realizar a importação e matrícula em massa de usuários por meio de planilha modelo','Como utilizar dashboards e relatórios para acompanhar o progresso, engajamento e desenvolvimento do seu time','Conhecendo a Comunidade Sankhya como ferramenta de apoio à aprendizagem contínua']}
 ]}
 } };
+let session = null; // {access_token, refresh_token}
+
+function saveSession(s){
+  session = s;
+  try{ localStorage.setItem('reconecta_admin_session', JSON.stringify(s)); }catch(e){}
+}
+function clearSession(){
+  session = null;
+  try{ localStorage.removeItem('reconecta_admin_session'); }catch(e){}
+}
+async function restoreSession(){
+  let stored = null;
+  try{ stored = JSON.parse(localStorage.getItem('reconecta_admin_session') || 'null'); }catch(e){}
+  if(!stored || !stored.refresh_token) return;
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body: JSON.stringify({refresh_token: stored.refresh_token})
+    });
+    const j = await res.json();
+    if(res.ok && j.access_token){
+      saveSession({access_token:j.access_token, refresh_token:j.refresh_token});
+      await Promise.all([loadRespostas(), loadConfig()]);
+    } else {
+      clearSession();
+    }
+  }catch(e){ clearSession(); }
+}
+let authMode = 'login';
+let tab = 'respostas';
+let respostas = [];
+let config = null; // {AREAS, MODULES}
+let expandedRow = null;
+
+const DEFAULT_STATUSES = [
+  {nome:'Agendado', cor:'green'},
+  {nome:'Em andamento', cor:'blue'},
+  {nome:'Concluído', cor:'gray'}
+];
+const DEFAULT_RESPONSAVEIS = [];
+const DEFAULT_PROJETOS = [];
+const PILL_COLORS = {
+  green:['#EAF3DE','#27500A'], blue:['#E6F1FB','#0C447C'], amber:['#FAEEDA','#633806'],
+  coral:['#FAECE7','#4A1B0C'], purple:['#EEEDFE','#26215C'], teal:['#E1F5EE','#04342C'], gray:['#F1EFE8','#2C2C2A']
+};
+
 function getStatuses(){ return (config && config.STATUSES) || DEFAULT_STATUSES; }
 function getResponsaveis(){ return (config && config.RESPONSAVEIS) || DEFAULT_RESPONSAVEIS; }
 function getProjetos(){ return (config && config.PROJETOS) || DEFAULT_PROJETOS; }
