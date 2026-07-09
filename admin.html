@@ -470,7 +470,7 @@ function renderConteudo(){
             <div style="grid-column:1/3"><label>Nome da seção</label><input data-gf="title" value="${esc(g.title)}"></div>
           </div>
           <label>Itens (um por linha)</label>
-          <textarea data-gf="items" rows="4">${esc((g.items||[]).join('\\n'))}</textarea>
+          <textarea data-gf="items" rows="4">${esc((g.items||[]).join('\n'))}</textarea>
           <button class="btn btn-line btn-remove-group" style="margin-top:6px">🗑 Remover esta seção</button>
         </div>`).join('');
       return `
@@ -482,7 +482,7 @@ function renderConteudo(){
             <div><label>Nome do módulo</label><input data-f="name" data-mid="${mid}" value="${esc(m.name)}"></div>
           </div>
           <label>Tópicos que o cliente pode escolher (um por linha)</label>
-          <textarea data-f="chips" data-mid="${mid}" rows="4">${esc((m.chips||[]).join('\\n'))}</textarea>
+          <textarea data-f="chips" data-mid="${mid}" rows="4">${esc((m.chips||[]).join('\n'))}</textarea>
           <label>Conteúdo programático (o que aparece em "ver conteúdo completo")</label>
           <div class="groups-wrap" data-mid="${mid}">${groupsHtml}</div>
           <button class="btn btn-line btn-add-group" data-mid="${mid}" style="margin-top:8px">+ Adicionar seção de conteúdo</button>
@@ -522,7 +522,7 @@ function syncFormToConfig(){
     if(!m) return;
     if(f === 'icon') m.icon = el.value;
     if(f === 'name') m.name = el.value;
-    if(f === 'chips') m.chips = el.value.split('\\n').map(s=>s.trim()).filter(Boolean);
+    if(f === 'chips') m.chips = el.value.split('\n').map(s=>s.trim()).filter(Boolean);
   });
   document.querySelectorAll('.group-editor').forEach(el=>{
     const mid = el.dataset.mid, gi = parseInt(el.dataset.gidx);
@@ -531,7 +531,7 @@ function syncFormToConfig(){
     const titleEl = el.querySelector('[data-gf="title"]');
     const itemsEl = el.querySelector('[data-gf="items"]');
     m.groups[gi].title = titleEl.value;
-    m.groups[gi].items = itemsEl.value.split('\\n').map(s=>s.trim()).filter(Boolean);
+    m.groups[gi].items = itemsEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
   });
 }
 
