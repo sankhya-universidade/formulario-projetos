@@ -364,7 +364,6 @@ function render(){
   html += '</div>';
   app.innerHTML = html;
   attachHandlers();
-  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function renderHero(){
@@ -688,6 +687,7 @@ function goBack(){
     state.moduleIdx = state.selectedModules.size - 1;
   }
   render();
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function goNext(){
@@ -700,6 +700,7 @@ function goNext(){
   }
   else if(state.step === 'review'){ submitPlan(); return; }
   render();
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 /* ======================================================================
