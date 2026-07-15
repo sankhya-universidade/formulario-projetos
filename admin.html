@@ -455,6 +455,7 @@ function renderDetail(mods){
   return mods.map(m=>`
     <div style="margin-bottom:10px">
       <strong>${esc(m.modulo_nome)}</strong><br>
+      ${m.turno ? `Turno: ${esc(m.turno)}<br>` : ''}
       ${m.topicos && m.topicos.length ? `Tópicos: ${m.topicos.map(esc).join(', ')}<br>` : ''}
       ${m.outro ? `Outro: ${esc(m.outro)}<br>` : ''}
       ${m.duvidas ? `Dúvidas: ${esc(m.duvidas)}<br>` : ''}
@@ -470,7 +471,7 @@ function exportExcel(){
       rows.push({
         Data: fmtDate(r.created_at), Nome: r.nome, Empresa: r.empresa,
         Status: r.status||'', Responsavel: r.responsavel||'', Projeto: r.projeto||'',
-        Modulo: m.modulo_nome, Topicos: (m.topicos||[]).join(', '), Outro: m.outro||'',
+        Modulo: m.modulo_nome, Turno: m.turno||'', Topicos: (m.topicos||[]).join(', '), Outro: m.outro||'',
         Duvidas: m.duvidas||'', 'Datas sugeridas': m.datas_sugeridas||'', 'E-mails participantes': m.emails_participantes||''
       });
     });
