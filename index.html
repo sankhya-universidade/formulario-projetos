@@ -135,6 +135,8 @@
   }
   .chip:hover{border-color:#B9E8C4;}
   .chip.selected{background:var(--navy-700); border-color:var(--navy-700); color:#fff;}
+  .select-all-btn{background:none;border:none;color:var(--navy-600);font-size:12.5px;font-weight:600;cursor:pointer;padding:0;}
+  .select-all-btn:hover{color:var(--green-dark);}
 
   .details-toggle{
     display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;
@@ -219,6 +221,12 @@ const SUPABASE_TABLE = 'reconecta_respostas';                  // TODO: crie est
 /* ======================================================================
    DADOS — Áreas e módulos (extraídos do formulário original)
    ====================================================================== */
+let HERO = {
+  badge: 'Universidade Sankhya · Plano de Capacitação Personalizado',
+  title: 'Você foi selecionado(a) para uma ação gratuita da Universidade Sankhya',
+  subtitle: 'O objetivo é ajudar a otimizar o uso do ERP e melhorar seus processos. Monte seu roteiro em poucos passos — você escolhe só o que faz sentido pro seu time.'
+};
+
 let AREAS = [
   {id:'comercial',   name:'Backoffice Comercial',    icon:'🛒', modules:[1,2,3,4,5,6]},
   {id:'financeiro',  name:'Backoffice Financeiro',    icon:'💵', modules:[7]},
@@ -337,7 +345,7 @@ let state = {
 };
 
 function ensureModuleData(id){
-  if(!state.data[id]) state.data[id] = {topics:new Set(), other:'', duvidas:'', dates:'', emails:''};
+  if(!state.data[id]) state.data[id] = {topics:new Set(), other:'', duvidas:'', dates:'', emails:'', turno:''};
   return state.data[id];
 }
 
@@ -362,9 +370,9 @@ function render(){
 function renderHero(){
   return `
   <div class="hero">
-    <span class="hero-badge">Universidade Sankhya · Plano de Capacitação Personalizado</span>
-    <h1>Você foi selecionado(a) para uma ação gratuita da Universidade Sankhya</h1>
-    <p>O objetivo é ajudar a otimizar o uso do ERP e melhorar seus processos. Monte seu roteiro em poucos passos — você escolhe só o que faz sentido pro seu time.</p>
+    <span class="hero-badge">${escapeHtml(HERO.badge)}</span>
+    <h1>${escapeHtml(HERO.title)}</h1>
+    <p>${escapeHtml(HERO.subtitle)}</p>
   </div>`;
 }
 
@@ -463,6 +471,7 @@ function stepModuleDetail(){
     const sel = d.topics.has(c);
     return `<div class="chip ${sel?'selected':''}" data-chip="${escapeAttr(c)}">${c}</div>`;
   }).join('');
+  const allSelected = m.chips.length > 0 && m.chips.every(c=>d.topics.has(c));
 
   const groupsHtml = m.groups.map(g=>{
     const items = g.items.map(it=>`<li>${it}</li>`).join('');
@@ -482,8 +491,17 @@ function stepModuleDetail(){
       ${isOpen ? `<div class="programmatic">${groupsHtml}</div>` : ''}
       ` : ''}
 
-      <label class="field-label">Quais tópicos te interessam?</label>
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <label class="field-label" style="margin:0">Quais tópicos te interessam?</label>
+        <button type="button" class="select-all-btn" id="btnSelectAllTopics">${allSelected ? 'Desmarcar todos' : 'Selecionar todos'}</button>
+      </div>
       <div class="chip-wrap">${chips}</div>
+
+      <label class="field-label" style="margin-top:14px;">Turno de preferência para a capacitação</label>
+      <div class="chip-wrap">
+        <div class="chip turno-chip ${d.turno==='Manhã'?'selected':''}" data-turno="Manhã">Manhã</div>
+        <div class="chip turno-chip ${d.turno==='Tarde'?'selected':''}" data-turno="Tarde">Tarde</div>
+      </div>
 
       <label class="field-label" style="margin-top:14px;">Dúvidas específicas sobre este módulo</label>
       <textarea id="inpDuvidas" placeholder="Conte pra gente o que precisa ser esclarecido">${escapeHtml(d.duvidas)}</textarea>
@@ -503,6 +521,7 @@ function stepReview(){
     return `
     <div class="review-block">
       <h4><span>${m.icon}</span> ${m.name}</h4>
+      ${d.turno ? `<p class="rb-meta">🕐 Turno: ${escapeHtml(d.turno)}</p>` : ''}
       ${d.dates ? `<p class="rb-meta">📅 ${escapeHtml(d.dates)}</p>` : ''}
       ${d.emails ? `<p class="rb-meta">✉️ ${escapeHtml(d.emails)}</p>` : ''}
       ${d.duvidas ? `<p class="rb-meta">💬 ${escapeHtml(d.duvidas)}</p>` : ''}
@@ -594,6 +613,7 @@ function attachHandlers(){
   });
 
   document.querySelectorAll('.chip').forEach(el=>{
+    if(el.dataset.turno) return; // handled separately below
     el.onclick = ()=>{
       const ids = Array.from(state.selectedModules);
       const mid = ids[state.moduleIdx];
@@ -603,6 +623,29 @@ function attachHandlers(){
       render();
     };
   });
+
+  document.querySelectorAll('.turno-chip').forEach(el=>{
+    el.onclick = ()=>{
+      const ids = Array.from(state.selectedModules);
+      const mid = ids[state.moduleIdx];
+      const d = ensureModuleData(mid);
+      const turno = el.dataset.turno;
+      d.turno = (d.turno === turno) ? '' : turno;
+      render();
+    };
+  });
+
+  const btnSelectAll = document.getElementById('btnSelectAllTopics');
+  if(btnSelectAll) btnSelectAll.onclick = ()=>{
+    const ids = Array.from(state.selectedModules);
+    const mid = ids[state.moduleIdx];
+    const m = MODULES[mid];
+    const d = ensureModuleData(mid);
+    const allSelected = m.chips.length > 0 && m.chips.every(c=>d.topics.has(c));
+    if(allSelected) d.topics.clear();
+    else m.chips.forEach(c=>d.topics.add(c));
+    render();
+  };
 
   const toggleDetails = document.getElementById('toggleDetails');
   if(toggleDetails) toggleDetails.onclick = ()=>{
@@ -679,7 +722,8 @@ async function submitPlan(){
         outro: d.other,
         duvidas: d.duvidas,
         datas_sugeridas: d.dates,
-        emails_participantes: d.emails
+        emails_participantes: d.emails,
+        turno: d.turno
       };
     })
   };
@@ -743,6 +787,7 @@ async function loadRemoteConfig(){
     if(rows && rows[0] && rows[0].data){
       if(rows[0].data.AREAS) AREAS = rows[0].data.AREAS;
       if(rows[0].data.MODULES) MODULES = rows[0].data.MODULES;
+      if(rows[0].data.HERO) HERO = rows[0].data.HERO;
     }
   }catch(e){ console.warn('Conteúdo remoto indisponível, usando padrão local.', e); }
 }
